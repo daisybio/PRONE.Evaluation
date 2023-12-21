@@ -1,6 +1,7 @@
 ####### -------- Script for Evaluation of Performance of Normalization Approaches -------- #######
 
-
+dataset_naming <- c("dS1", "dS2", "dS3", "dS4", "dS5", "dS6", "dS7")
+names(dataset_naming) <- c("CPTAC6_UPS1_Valikangas", "yeast_UPS1_Ramus", "yeast_UPS1_Pursiheimo_Valikangas", "Ecoli_human_Ionstar", "Ecoli_human_MaxLFQ", "Ecoli_human_DEqMS", "yeast_human_OConnell")
 
 ####### -------- Read normalized SE -------- #######
 se_norm_list <- list()
@@ -50,6 +51,10 @@ PMAD_diff_overall <- PMAD_diff_overall[PMAD_diff_overall$Normalization != "log2"
 perc_reduction <- PMAD_diff_overall
 perc_reduction$PMAD <- round(perc_reduction$PMAD, 2)
 perc_reduction <- dcast(perc_reduction, Normalization~Dataset, value.var = "PMAD")
+perc_reduction <- perc_reduction[, c("Normalization", names(dataset_naming)), with = FALSE]
+colnames(perc_reduction) <- c("Normalization", unname(dataset_naming))
+write.csv(perc_reduction, file = "tables/percent_reduction_PMAD_individual.csv", col.names = TRUE, row.names = TRUE)
+
 
 final_PMAD_intra <- PMAD_intra[, c("Dataset", "Normalization", "PMAD")]
 final_PMAD_intra <- data.table::dcast(final_PMAD_intra, Normalization ~ Dataset, value.var = "PMAD")
@@ -114,10 +119,14 @@ methods <- cor_overall$Normalization
 ggplot(cor_overall, aes(x = Average, y = Normalization)) + geom_point(size = 5) + geom_errorbar(aes(xmin = Average - SD, xmax = Average + SD), width = .2, position = position_dodge(.9)) +
   theme + labs(x = "Mean Pearson Correlation Coefficient", y = "Normalization Method") 
 
-cor_intra_overall$Normalization <- factor(cor_intra_overall$Normalization, levels = methods)
+cor_intra_overall <- cor_intra_overall[cor_intra_overall$Normalization != "log2",]
+cor_intra_overall$Normalization <- factor(cor_intra_overall$Normalization, levels = final_PMAD_diff$Normalization)
 pcor <- ggplot(cor_intra_overall, aes( x= Correlation, y=Normalization, fill = Normalization)) + 
-  geom_boxplot() + theme + labs(x = "Pearson Correlation Coefficient", y="Normalization Method") + guides(fill="none")
+  geom_boxplot() + theme + labs(x = "Pearson Correlation Coefficient", y="Normalization Method") + guides(fill="none") + scale_fill_manual(values = col_vector_norm)
 ggsave("figures/pearson_correlation_overall.png", width = 12, height = 8)
+
+ggpubr::ggarrange(pPMAD, pcor, ncol = 2, labels = c("A", "B"))
+ggsave("figures/intragroup_variation_overall.png", width = 12, height = 4)
 
 
 ####### -------- Read DE Result Statistics -------- #######
@@ -144,10 +153,11 @@ dt <- stats[, c("Assay", "FPR", "Dataset"), with = FALSE]
 averages <- dt %>% dplyr::group_by(Dataset, Assay) %>% dplyr::summarize(Average = mean(FPR, na.rm = TRUE), SD = sd(FPR, na.rm = TRUE))
 
 # Add VSN with NA
-vsn <- data.table("Dataset" = "Ecoli_human_DEqMS", "Assay" = "VSN", "Average" = NA, "SD " = NA)
-averages <- rbind(averages, vsn)
+#vsn <- data.table("Dataset" = "Ecoli_human_DEqMS", "Assay" = "VSN", "Average" = NA, "SD " = NA)
+#averages <- rbind(averages, vsn)
 
-ggplot(averages, aes(x = Assay, y = Dataset, fill = Average)) + geom_tile(colour="white") + labs(x = "Normalization Method", fill = "Mean FPR", y ="Data Set") + scale_fill_distiller(palette = "YlOrRd", direction = -1, limits = c(0,1)) +
+ggplot(averages, aes(x = Assay, y = Dataset, fill = Average)) + geom_tile(colour="white") + labs(x = "Normalization Method", fill = "Mean FPR", y ="Data Set") + 
+  scale_fill_distiller(palette = "YlOrRd", direction = 1, limits = c(0,1)) +
   theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "top") + geom_text(aes(label = round(Average, 2))) +
   guides(fill = guide_colorbar(barwidth = 10, barheight = 2))
 
@@ -157,13 +167,14 @@ ggplot(tmp, aes(x = Average, y = Assay)) + geom_point(size = 5) + geom_errorbar(
   theme + labs(x = "Average FPR", y= "Normalization") 
 
 # False Discovery Rate
-ggplot(stats, aes(x = Assay, y = FDR, fill = Assay)) + geom_boxplot() + scale_fill_manual(name = "Normalization Method", values = col_vector_norm[unique(stats$Assay)]) + 
+ggplot(stats, aes(x = Assay, y = FPR, fill = Assay)) + geom_boxplot() + scale_fill_manual(name = "Normalization Method", values = col_vector_norm[unique(stats$Assay)]) + 
   theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + facet_wrap(~Dataset, scales = "free_y") + coord_flip()
 
 
 # F1 Score Boxplots Divided By Datasets
 ggplot(stats, aes (x = Assay, y = F1Score, fill = Assay)) + geom_boxplot() + 
-  facet_wrap(~Dataset, scales = "free_y") + scale_fill_manual(name = "Normalization", values = col_vector_norm[unique(stats$Assay)])
+  facet_wrap(~Dataset, scales = "free_y") + scale_fill_manual(name = "Normalization", values = col_vector_norm[unique(stats$Assay)]) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 
 # F1 Score Boxplots Overall By Normalization Method
@@ -173,9 +184,7 @@ ggplot(stats, aes (x = Assay, y = F1Score, fill = Assay)) + geom_boxplot() +
 # F1 Score Heatmap (By Dataset and Normalization Method)
 dt <- stats[, c("Assay", "F1Score", "Dataset"), with = FALSE]
 averages <- dt %>% dplyr::group_by(Dataset, Assay) %>% dplyr::summarize(Average = mean(F1Score, na.rm = TRUE), SD = sd(F1Score, na.rm = TRUE))
-# Add VSN with NA
-vsn <- data.table("Dataset" = "Ecoli_human_DEqMS", "Assay" = "VSN", "Average" = NA, "SD " = NA)
-averages <- rbind(averages, vsn)
+
 ggplot(averages, aes(x = Assay, y = Dataset, fill = Average)) + geom_tile(colour="white") + labs(fill = "Mean F1Score") + 
   theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "top") + scale_fill_distiller(palette = "YlOrRd", direction = 1, limits = c(0,1)) + 
   geom_text(aes(label = round(Average, 2))) + guides(fill = guide_colorbar(barwidth = 10, barheight = 2)) + labs(x = "Normalization Method", y = "Data Set")
@@ -257,14 +266,18 @@ de_res <- rbindlist(de_list)
 de_res$Difference <- de_res$logFC - de_res$Truth
 
 ####### -------- Plot LogFC Observed vs. Expected -------- #######
-ggplot(de_res[de_res$Spiked == "BG",], aes(x = logFC, color = Assay)) + geom_density() + geom_vline(xintercept = 0, linetype="dotted") + 
+bg <- ggplot(de_res[de_res$Spiked == "BG",], aes(x = logFC, color = Assay)) + geom_density() + geom_vline(xintercept = 0, linetype="dotted") + 
   scale_x_continuous(limits = c(-1, 1), breaks = c(-1, -0.5, 0, 0.5, 1)) + scale_color_manual(name = "Normalization Method", values = col_vector_norm) +
-  theme + labs(x = "LogFC", y = "Density")
+  theme + labs(x = "LogFC", y = "Density") 
 
-ggplot(de_res[de_res$Spiked != "BG",], aes( x = Assay, y = Difference, fill = Assay)) + geom_violin(width = 1.0) + 
+spike <- ggplot(de_res[de_res$Spiked != "BG",], aes( x = Assay, y = Difference, fill = Assay)) + geom_violin(width = 1.0) + 
   geom_boxplot(width = 0.2, outlier.shape = NA) +  stat_boxplot(geom="errorbar", width = 0.2)+ 
   theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + geom_hline(yintercept = 0, linetype="dotted") +
-  scale_fill_manual(name = "Normalization Method", values = col_vector_norm) + labs(x = "Normalization Method", y="Observed - Theoretical LogFCs") 
+  scale_fill_manual(name = "Normalization Method", values = col_vector_norm) + 
+  labs(x = "Normalization Method", y="Observed - Theoretical LogFCs") 
+
+ggarrange(spike, bg, ncol = 1, labels = c("A", "B"), common.legend = TRUE, legend = "right")
+ggsave("figures/expected_observed_logFCs_overall.png", width = 8, height = 10)
 
 de_logFC_diff <- de_res %>% dplyr::group_by(Assay, Spiked) %>% dplyr::summarise(AverageDiff = mean(Difference, na.rm = TRUE), SDDiff = sd(Difference, na.rm = TRUE))
 
@@ -273,5 +286,5 @@ ggplot(de_logFC_diff, aes( x = Assay, y = AverageDiff, fill = Assay)) + geom_bar
   theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + 
   scale_fill_manual(name = "Normalization Method", values = col_vector_norm) + 
   labs(x = "Normalization Method", y="Difference in LogFCs (Observed - Theoretical)") 
-
+ggsave("figures/expected_observed_logFCs_overall.png", width = 10, height = 20)
 

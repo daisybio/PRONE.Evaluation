@@ -1,9 +1,21 @@
 ####### -------- Preprocessing and Normalization Script -------- #######
+nr_initial <- nrow(se)
+nr_samples <- ncol(se)
+nr_conditions <- length(unique(as.data.table(colData(se))[[metadata(se)$condition]]))
 
+# Remove proteins with missing values in all samples
+se <- filter_complete_NA_proteins(se)
+
+# Remove reverse hits, contamininants, and only identified by site
+se <- filter_proteins_by_value(se, "Reverse", "+")
+se <- filter_proteins_by_value(se, "Potential.contaminant", "+")
+se <- filter_proteins_by_value(se, "Only.identified.by.site", "+")
+
+nas <- get_NA_overview(se, ain = "log2")
 
 # Overview Plots
 if(plot){
-  get_NA_overview(se, ain = "log2")
+  print(nas)
   
   plot_condition_overview(se, condition = NULL)
   
@@ -14,13 +26,8 @@ if(plot){
   plot_profiles_spiked(se)
 }
 
-# Remove proteins with missing values in all samples
-se <- filter_complete_NA_proteins(se)
-
-# Remove reverse hits, contamininants, and only identified by site
-se <- filter_proteins_by_value(se, "Reverse", "+")
-se <- filter_proteins_by_value(se, "Potential.contaminant", "+")
-se <- filter_proteins_by_value(se, "Only.identified.by.site", "+")
+nr_prefilter <- nrow(se)
+na_percentage <- paste0(round(nas$NA.Percentage, 2), " %")
 
 # Filter Missing Values
 
@@ -33,6 +40,8 @@ if(plot){
 }
 
 se <- filter_NA_proteins_by_threshold(se, thr = NA_thr)
+
+nr_final <- nrow(se)
 
 if(plot){
   plot_NA_heatmap(se, color_by = NULL, label_by = NULL, cluster_samples = TRUE, cluster_proteins = TRUE)
@@ -71,3 +80,5 @@ if(plot){
   plot_PCA(se_norm, ain = NULL, color_by = NULL, label_by = "No", shape_by = NULL, facet_norm = TRUE, facet_by = NULL)
   plot_intragroup_PMAD(se_norm, ain = NULL, condition = NULL, diff = TRUE)
 }
+
+

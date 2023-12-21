@@ -1,6 +1,8 @@
-####### -------- Pipeline for Evaluation of Spike-in Data Sets -------- #######
+####### -------- Pipeline for Evaluation of a Real-World Data Set -------- #######
 
-# Set spike-in configuration
+
+
+# Set real-world configuration
 plot <- FALSE
 NA_thr <- 0.8
 performPOMA <- FALSE
@@ -30,16 +32,30 @@ sapply(list.files("spike-in/data_preparation/", pattern = ".R", full.names = TRU
 
 # Preprocess and Normalize the individual data sets
 message("Preprocess and normalize data sets...")
+overview_list <- list()
 for(se_rds in list.files(file.path("data/raw_spike_in_se/"), pattern = "_se.rds")){
   message(paste0("...", se_rds))
   # read RDS
   se <- readRDS(file.path("data/raw_spike_in_se/", se_rds))
   # preprocess & normalize SummarizedExperiment
   source("spike-in/Spike-in_Preprocessing.R")
+  # save overview table
+  # Create overview table
+  overview_table <- data.table("Dataset" = c(se_rds), "Samples" = c(nr_samples),"Conditions" = c(nr_conditions), "Initial" = c(nr_initial), "Prefilter" = c(nr_prefilter), "MV rate" = c(na_percentage), "Final" = c(nr_final))
+  overview_list[[se_rds]] <- overview_table
   # save RDS
   se_norm_rds <- paste0(strsplit(se_rds, ".rds")[1][[1]], "_norm.rds")
   saveRDS(se_norm, file.path("data/preprocessed_normalized_spike_in_se/", se_norm_rds))
 }
+
+# Construct overview table
+overview_table <- rbindlist(overview_list)
+overview_table$Dataset <- sapply(strsplit(overview_table$Dataset,"_se.rds"), "[", 1) 
+dataset_naming <- c("dS1", "dS2", "dS3", "dS4", "dS5", "dS6", "dS7")
+names(dataset_naming) <- c("CPTAC6_UPS1_Valikangas", "yeast_UPS1_Ramus", "yeast_UPS1_Pursiheimo_Valikangas", "Ecoli_human_Ionstar", "Ecoli_human_MaxLFQ", "Ecoli_human_DEqMS", "yeast_human_OConnell")
+overview_table <- overview_table[match(names(dataset_naming), overview_table$Dataset),]
+overview_table$Dataset <- as.vector(dataset_naming)
+write.csv(overview_table, file = "tables/overview_spike_in_table.csv", col.names = TRUE, row.names = FALSE)
 
 # DE Analysis
 message("Run DE analysis...")

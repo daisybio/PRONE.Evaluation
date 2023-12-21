@@ -1,5 +1,5 @@
 ## ----- Load required libraries -----
-required_packages <- c("data.table", "readxl", "SummarizedExperiment", "stringr", "ggplot2", "RColorBrewer")
+required_packages <- c("data.table", "readxl", "SummarizedExperiment", "stringr", "ggplot2", "RColorBrewer", "ggpubr")
 for(package in required_packages){
   if(!require(package,character.only = TRUE, quietly = TRUE)) install.packages(package, dependencies = TRUE, quietly = TRUE)
   library(package, character.only = TRUE, quietly = TRUE)
