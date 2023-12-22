@@ -1,13 +1,14 @@
 ####### -------- Pipeline for Evaluation of a Real-World Data Set -------- #######
 
-
+# Load all packages
+message("Loading of packages...")
+source("config.R")
 
 # Set real-world configuration
-plot <- FALSE
+
+data_file <- "data/raw_real_world_se/tuberculosis_se.rds"
+
 NA_thr <- 0.8
-performPOMA <- FALSE
-norm_methods <- PRONE.R::get_normalization_methods()
-norm_methods <- norm_methods[!norm_methods %in% c("IRS", "HarmonizR", "limBE")]
 
 DE_method <- "limma"
 logFC <- FALSE
@@ -16,61 +17,90 @@ logFC_down <- -1
 p_adj <- TRUE
 alpha <- 0.05
 
-# Load all packages
-message("Loading of packages...")
-source("config.R")
+# Load data into SE
 
-# Create directories
-dir.create("data/raw_spike_in_se/")
-dir.create("data/preprocessed_normalized_spike_in_se/")
-dir.create("data/de_results_spike_in/")
+se <- readRDS(data_file)
 
-# Load all data sets in SummarizedExperiment objects
-message("Load data sets into SE...")
-sapply(list.files("spike-in/data_preparation/", pattern = ".R", full.names = TRUE), source)
+dim(se)
+
+# Pre-filtering
+
+se <- filter_complete_NA_proteins(se)
+se <- filter_proteins_by_value(se, column_name = "Reverse", values = c("+"))
+se <- filter_proteins_by_value(se, column_name = "Potential.contaminant", values = c("+"))
+se <- filter_proteins_by_value(se, column_name = "Only.identified.by.site", values = c("+"))
+
+# Overview Plots
+
+plot_condition_overview(se)
+
+plot_nr_prot_samples(se)
+
+plot_tot_int_samples(se)
+
+# NA Quality Control
+
+get_NA_overview(se)
+
+plot_NA_frequency(se)
+
+plot_NA_density(se)
+
+plot_NA_heatmap(se)
+
+se <- filter_NA_proteins_by_threshold(se, thr = NA_thr)
+
+plot_NA_heatmap(se)
+
+# Outlier Detection
+
+poma_results <- detect_outliers_POMA(se, ain = "raw")
+
+poma_results$polygon_plot
+
+poma_results$distance_boxplot
+
+poma_results$outliers
+
+se <- remove_POMA_outliers(se, poma_results$outliers)
+
+# Normalization
+
+norm_methods <- get_normalization_methods()
+
+se <- normalize_se(se, methods = norm_methods)
+
+# Add combinations of methods
+
+# TODO
+
+# Evaluation
+
+# Visual quality control
+plot_boxplots(se)
+plot_PCA(se, shape_by = "Batch")
+plot_densities(se, color_by = "Column")
 
 
-# Preprocess and Normalize the individual data sets
-message("Preprocess and normalize data sets...")
-overview_list <- list()
-for(se_rds in list.files(file.path("data/raw_spike_in_se/"), pattern = "_se.rds")){
-  message(paste0("...", se_rds))
-  # read RDS
-  se <- readRDS(file.path("data/raw_spike_in_se/", se_rds))
-  # preprocess & normalize SummarizedExperiment
-  source("spike-in/Spike-in_Preprocessing.R")
-  # save overview table
-  # Create overview table
-  overview_table <- data.table("Dataset" = c(se_rds), "Samples" = c(nr_samples),"Conditions" = c(nr_conditions), "Initial" = c(nr_initial), "Prefilter" = c(nr_prefilter), "MV rate" = c(na_percentage), "Final" = c(nr_final))
-  overview_list[[se_rds]] <- overview_table
-  # save RDS
-  se_norm_rds <- paste0(strsplit(se_rds, ".rds")[1][[1]], "_norm.rds")
-  saveRDS(se_norm, file.path("data/preprocessed_normalized_spike_in_se/", se_norm_rds))
-}
+# Intragroup variation
+plot_intragroup_PMAD(se)
+plot_intragroup_correlation(se)
+plot_intragroup_PEV(se)
 
-# Construct overview table
-overview_table <- rbindlist(overview_list)
-overview_table$Dataset <- sapply(strsplit(overview_table$Dataset,"_se.rds"), "[", 1) 
-dataset_naming <- c("dS1", "dS2", "dS3", "dS4", "dS5", "dS6", "dS7")
-names(dataset_naming) <- c("CPTAC6_UPS1_Valikangas", "yeast_UPS1_Ramus", "yeast_UPS1_Pursiheimo_Valikangas", "Ecoli_human_Ionstar", "Ecoli_human_MaxLFQ", "Ecoli_human_DEqMS", "yeast_human_OConnell")
-overview_table <- overview_table[match(names(dataset_naming), overview_table$Dataset),]
-overview_table$Dataset <- as.vector(dataset_naming)
-write.csv(overview_table, file = "tables/overview_spike_in_table.csv", col.names = TRUE, row.names = FALSE)
+# Differential expression analysis
+se <- remove_reference_samples(se)
 
-# DE Analysis
-message("Run DE analysis...")
+comparisons <- specify_comparisons(se)
+de_res <- run_DE(se, 
+                 comparisons = comparisons,
+                 ain = NULL,
+                 condition = NULL,
+                 DE_method = DE_method,
+                 covariate = NULL,
+                 logFC = logFC,
+                 logFC_up = logFC_up,
+                 logFC_down = logFC_down,
+                 p_adj = p_adj,
+                 alpha = alpha
+                 )
 
-for(se_rds in list.files(file.path("data/preprocessed_normalized_spike_in_se/"), pattern = "_se_norm.rds")){
-  message(paste0("...", se_rds))
-  # read RDS
-  se_norm <- readRDS(file.path("data/preprocessed_normalized_spike_in_se/", se_rds))
-  # preprocess & normalize SummarizedExperiment
-  source("spike-in/Spike-in_DE_Analysis.R")
-  # save RDS
-  de_results_file <- paste0(strsplit(se_rds, "_se_norm.rds")[1][[1]], "_de_results.rds")
-  saveRDS(de_results, file.path("data/de_results_spike_in/", de_results_file))
-  stats_file <- paste0(strsplit(se_rds, "_se_norm.rds")[1][[1]], "_de_stats.rds")
-  saveRDS(stats, file.path("data/de_results_spike_in/", stats_file))
-  auc_file <- paste0(strsplit(se_rds, "_se_norm.rds")[1][[1]], "_de_auc.rds")
-  saveRDS(auc, file.path("data/de_results_spike_in/", auc_file))
-}
