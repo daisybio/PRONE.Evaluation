@@ -7,7 +7,7 @@ for(package in required_packages){
 
 # Install PRONE.R from github and build vignettes
 if (!requireNamespace("devtools", quietly = TRUE)) install.packages("devtools")
-devtools::install_github("lisiarend/PRONE.R", build_vignettes = TRUE, dependencies = TRUE, force = TRUE)
+devtools::install_github("lisiarend/PRONE.R", build_vignettes = TRUE, dependencies = TRUE)
 # Load and attach PRONE.R 
 library("PRONE.R")
 
