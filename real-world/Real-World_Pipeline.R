@@ -62,21 +62,23 @@ poma_results <- detect_outliers_POMA(se, ain = "raw")
 
 se <- remove_POMA_outliers(se, poma_results$outliers)
 
+#saveRDS(se, "data/li_et_al_preprocessed_se.rds")
+
 # Normalization
 
 norm_methods <- get_normalization_methods()
 norm_methods <- norm_methods[norm_methods != "HarmonizR"] # this does not work yet!
 
-if(TMT){
-  additional <- c("Median_on_IRS", "Median_on_limBE", 
-                  "RobNorm_on_IRS", "RobNorm_on_limBE",
-                  "IRS_on_GlobalMean_on_TMM")
-  norm_methods <- c(norm_methods, additional)
-} else {
+if(!TMT){
   norm_methods <- norm_methods[!norm_methods %in% c("limBE", "IRS")]
 }
 
-se <- normalize_se(se, methods = norm_methods, reduce_correlation_by = 5, gamma.0 = 0.1)
+
+se <- normalize_se(se, methods = norm_methods, reduce_correlation_by = 1, gamma.0 = 0.1)
+
+if(TMT){
+  se <- normalize_se_combination(se, methods = norm_methods[!norm_methods %in% c("IRS", "limBE")], ains = c("IRS", "limBE"), "_on_", reduce_correlation_by = 1, gamma.0 = 0.1)
+}
 
 # Evaluation
 
@@ -104,6 +106,7 @@ saveRDS(se, file = out_file)
 if(is.null(comparisons)){
   comparisons <- specify_comparisons(se)
 }
+
 de_res <- run_DE(se, 
                  comparisons = comparisons,
                  ain = NULL,
