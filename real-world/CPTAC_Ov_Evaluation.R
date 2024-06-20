@@ -1,0 +1,265 @@
+# Set data path
+data_name <- "CPTAC_OV"
+
+# Set real-world configuration for this data set
+TMT <- TRUE
+NA_thr <- 0.8
+DE_method <- "limma"
+logFC <- TRUE
+logFC_up <- 1
+logFC_down <- -1
+p_adj <- TRUE
+alpha <- 0.05
+comparisons <- NULL
+
+
+# Check if DE and normalization objects already saved
+if(!file.exists(paste0("data/de_results_real_world/", data_name, "_de_res.rds"))){
+  # Perform preprocessing, normalization, DE analysis
+  source("real-world/Real-World_Pipeline.R")
+}
+
+# Read DE results and normalized object
+de_res <- readRDS(paste0("data/de_results_real_world/", data_name, "_de_res.rds"))
+se_norm <- readRDS(paste0("data/preprocessed_normalized_real_world_se/", data_name, "_se_norm.rds"))
+
+# Evaluation
+
+# 1. Unnormalized data
+
+log2_pca <- plot_PCA(se_norm, ain = "log2", color_by = "Batch", label_by = "No", shape_by = "Condition") + theme
+log2_boxplot <- plot_boxplots(se_norm, ain = "log2", color_by = "Condition") + theme
+
+log2_pca / log2_boxplot
+
+# Quantitative and Qualitative Evaluation
+
+assays <- names(assays(se_norm))
+norm_methods_IRS <- assays[grepl("IRS_on_", assays)]
+norm_methods_limBE <- assays[grepl("limBE_on_", assays)]
+norm_methods_single <- assays[!assays %in% c("limBE", "IRS", "log2", norm_methods_IRS, norm_methods_limBE)]
+
+plot_intragroup_PMAD(se_norm, ain = norm_methods_IRS)
+plot_intragroup_PMAD(se_norm, ain = norm_methods_limBE)
+plot_intragroup_PMAD(se_norm, ain = norm_methods_single)
+
+plot_PCA(se_norm, ain = c("RobNorm", "Median", "NormicsVSN"), shape_by = "Pathological_Status", color_by = "Pool", label_by = "No")
+plot_PCA(se_norm, ain = c("RobNorm", "Median", "NormicsVSN"), color_by = "Pathological_Status", label_by = "No")
+
+plot_PCA(se_norm, ain = c("IRS_on_RobNorm", "IRS_on_Median", "IRS_on_NormicsVSN"), shape_by = "Pathological_Status", color_by = "Pool", label_by = "No")
+plot_PCA(se_norm, ain = c("IRS_on_RobNorm", "IRS_on_Median", "IRS_on_NormicsVSN"), color_by = "Pathological_Status", label_by = "No")
+
+ain <- c("IRS_on_RobNorm", "IRS_on_Median", "IRS_on_NormicsVSN", "IRS_on_MAD", "IRS_on_EigenMS")
+plot_PCA(se_norm, ain = ain, color_by = "Pathological_Status", label_by = "No")
+plot_PCA(se_norm, ain = ain, color_by = "Anatomic_Site_Tumor", label_by = "No")
+plot_PCA(se_norm, ain = ain, color_by = "Origin_Site_Disease", label_by = "No")
+
+
+
+# PCA of all methods
+assays <- names(assays(se_norm))
+#methods_to_remove <- c("VSN", "IRS_on_VSN", "limBE_on_VSN", "MAD", "IRS_on_MAD", "limBE_on_MAD", "EigenMS", "IRS_on_EigenMS", "limBE_on_EigenMS", "TMM", "IRS_on_TMM", "limBE_on_TMM")
+#assays <- assays[!assays %in% methods_to_remove]
+norm_methods_IRS <- assays[grepl("IRS_on_", assays)]
+norm_methods_limBE <- assays[grepl("limBE_on_", assays)]
+norm_methods_single <- assays[!assays %in% c("limBE", "IRS", "log2", norm_methods_IRS, norm_methods_limBE)]
+
+
+single_PCA_dt <- PRONE:::get_complete_pca_dt(se_norm, norm_methods_single)
+coldata <- as.data.table(colData(se_norm))
+single_PCA_dt <- merge(single_PCA_dt, coldata, by = "Column")
+p1 <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Batch)) + geom_point(size = 3) + theme + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
+p1_timepoint <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Timepoint, shape = Batch)) + geom_point(size = 3) + theme 
+
+IRS_PCA_dt <- PRONE:::get_complete_pca_dt(se_norm, norm_methods_IRS)
+IRS_PCA_dt <- merge(IRS_PCA_dt, coldata, by = "Column")
+IRS_PCA_dt$Assay <- sapply(strsplit(IRS_PCA_dt$Assay, "_on_"), function(x) x[2]) 
+p2 <- ggplot(IRS_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Batch)) + geom_point(size = 3) + theme + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
+p2_timepoint <- ggplot(IRS_PCA_dt, aes( x= PC1, y = PC2, color = Timepoint, shape = Batch)) + geom_point(size = 3) + theme 
+
+p1p2 <- ggarrange(p1, p2, common.legend = TRUE, legend = "right", labels = c("A", "B"), ncol = 2)
+p1p2_timepoint <- ggarrange(p1_timepoint, p2_timepoint, common.legend = TRUE, legend = "right", labels = c("A", "B"), ncol = 2)
+
+ggarrange(p1p2, p2_timepoint, legend = "right", labels = c("", "C"), ncol = 2)
+
+
+
+plot_densities(se_norm, ain = ain, color_by = "Pathological_Status", ncol = 3)
+
+ain <- c("IRS_on_RobNorm", "IRS_on_Median", "IRS_on_NormicsVSN")
+plot_boxplots(se_norm, ain = ain, color_by = "Pathological_Status")
+
+# Complete PCA plot of all normalization methods
+assays <- names(assays(se_norm))
+
+#assays <- assays[!assays %in% c("EigenMS", "MAD", "IRS_on_EigenMS", "limBE_on_EigenMS", "IRS_on_MAD", "limBE_on_MAD")]#, "VSN", "IRS_on_VSN", "limBE_on_VSN", "TMM", "IRS_on_TMM", "limBE_on_TMM")]
+
+# find assays with _on_IRS
+norm_methods_IRS <- assays[grepl("IRS_on_", assays)]
+se_IRS <- PRONE::generate_complete_SE(se_norm, ain = norm_methods_IRS)
+colData(se_IRS)$Normalization <- sapply(strsplit(colData(se_IRS)$Normalization, "_on_"), function(x) x[2])
+
+# find assays with _on_limBE
+se_limBE <- PRONE::generate_complete_SE(se_norm, ain = norm_methods_limBE)
+colData(se_limBE)$Normalization <- sapply(strsplit(colData(se_limBE)$Normalization, "_on_"), function(x) x[2])
+
+# single normalization methods
+norm_methods_single <- assays[!assays %in% c("limBE", "IRS", "log2", norm_methods_IRS, norm_methods_limBE)]
+se_single <- PRONE::generate_complete_SE(se_norm, ain = norm_methods_single)
+
+# PCA plots
+pca_single <- plot_PCA(se_single, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Pool") + 
+  theme + theme(strip.text = element_blank()) +
+  ggtitle("Single Normalization Methods")# + scale_color_manual(values = col_vector_norm)
+
+pca_IRS <- plot_PCA(se_IRS, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Pool") + 
+  theme + theme(strip.text = element_blank()) + 
+  ggtitle("IRS Normalization") # + scale_color_manual(values = col_vector_norm)
+
+pca_limBE <- plot_PCA(se_limBE, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Pool") + 
+  theme + theme(strip.text = element_blank()) +
+  ggtitle("limBE Normalization") # + scale_color_manual(values = col_vector_norm)
+
+pca_single + pca_IRS + pca_limBE + patchwork::plot_layout(guides = "collect")
+
+# DEP Comparison
+
+# Methods based on IRS-normalized data
+de_res_IRS <- de_res[de_res$Assay %in% c(norm_methods_IRS),]
+plot_overview_DE_bar(de_res_IRS, plot_type = "single")
+plot_volcano_DE(de_res_IRS)
+
+
+new_de_res_IRS <- PRONE::apply_thresholds(de_res_IRS, logFC_up = 2, logFC_down = -2)
+plot_overview_DE_bar(new_de_res_IRS, plot_type = "single")
+
+plot_jaccard_heatmap(new_de_res_IRS, plot_type = "all")
+
+# Stacked barplot of overlaps
+plot_upset_DE(new_de_res_IRS, plot_type = "single")
+
+upset_res <- plot_upset_DE(new_de_res_IRS, plot_type = "stacked", min_degree = 15)
+upset_res_table <- upset_res$table
+unique_res <- upset_res_table[upset_res_table$`Number of Intersected Assays` == 1,]
+
+# Statistical enrichment analysis
+
+
+dt <- new_de_res_IRS[!new_de_res_IRS$Assay %in% c("IRS_on_TMM", "IRS_on_VSN"),]
+ain <- unique(dt$Assay)
+id_column <- "Gene.Names"
+queries <- lapply(ain, function(method) {
+  tmp <- dt[dt$Assay == method, ]
+  query <- tmp[[id_column]]
+  query <- unique(query[query != ""])
+  query
+})
+names(queries) <- ain
+gprofiler_res <- gprofiler2::gost(query = queries, organism = "mmusculus", sources = c("KEGG"), correction_method = "fdr")
+gprofiler_res <- gprofiler_res$result
+
+ggplot(gprofiler_res, aes(x = query, y = term_name, fill = p_value)) + geom_tile() +
+  theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + labs(x = "Normalization Method", y = "KEGG Patheay", fill = "P-Value")
+
+
+# Consensus
+dt <- new_de_res_IRS[!new_de_res_IRS$Assay %in% c("IRS_on_TMM", "IRS_on_VSN"),]
+DE_candidates <- extract_consensus_DE_candidates(dt, ain = NULL, norm_thr = 0.9, per_comparison = TRUE)
+
+# check distribution of p.adjust values in the different normalization methods
+
+ggplot(new_de_res_IRS, aes(x = adj.P.Val)) +
+  geom_histogram(alpha = 0.5) +
+  facet_wrap(~Assay, scales = "free") +
+  labs(x = "p.adjust", fill = "Normalization Method") +
+  theme
+
+ggplot(new_de_res_IRS, aes(x = logFC)) +
+  geom_histogram(alpha = 0.5) +
+  facet_wrap(~Assay, scales = "free") +
+  labs(x = "logFC", fill = "Normalization Method") +
+  theme
+
+ggplot(new_de_res_IRS, aes(x = P.Value)) +
+  geom_histogram(alpha = 0.5) +
+  facet_wrap(~Assay, scales = "free") +
+  labs(x = "P.Value", fill = "Normalization Method") +
+  theme
+
+
+# VSN Normalization
+
+# VSN 
+se_VSN <- subset_SE_by_norm(se_norm, ain = c("raw", "log2"))#, "VSN", "RobNorm", "Median"))#, "limBE_on_VSN", "IRS_on_VSN", "IRS_on_RobNorm", "IRS_on_Median", "IRS_on_Median", "limBE_on_Median"))
+
+se_VSN <- vsnNorm(se_VSN, ain = "raw", aout = "VSN_0.9", VSN_quantile = 0.9)
+se_VSN <- vsnNorm(se_VSN, ain = "raw", aout = "VSN_0.8", VSN_quantile = 0.8)
+se_VSN <- vsnNorm(se_VSN, ain = "raw", aout = "VSN_0.5", VSN_quantile = 0.5)
+se_VSN <- vsnNorm(se_VSN, ain = "raw", aout = "VSN_1", VSN_quantile = 1)
+
+
+se_VSN_big <- generate_complete_SE(se_VSN)
+plot_PCA(se_VSN_big, color_by = "Normalization", label_by = "No", shape_by = "Batch")
+
+se_VSN <- normalize_se_custom(se, methods = c("VSN", "IRS_on_VSN", "limBE_on_VSN"))
+
+
+
+normalize_se_custom <- function(se, methods, combination_pattern = "_on_", gamma.0 = 0.5, reduce_correlation_by = 1, NormicsVSN_quantile = 0.8, top_x = 50, VSN_quantile = 0.9){
+  browser()
+  # extract combination of methods
+  if(!is.null(combination_pattern)){
+    comb_methods <- methods[stringr::str_detect(methods, combination_pattern)] #  combined methods
+    sing_methods <- methods[!methods %in% comb_methods] # single methods
+  } else {
+    sing_methods <- methods
+  }
+  
+  # single normalization
+  if(length(sing_methods) > 0){
+    se <- normalize_se_single(se, sing_methods, gamma.0 = gamma.0, reduce_correlation_by = reduce_correlation_by, NormicsVSN_quantile = NormicsVSN_quantile, top_x = top_x, VSN_quantile = VSN_quantile)
+  }
+  # combined normalization
+  if(!is.null(combination_pattern)){
+    if(length(comb_methods) > 0){
+      for(m in comb_methods){
+        methods_split <- strsplit(m, combination_pattern)[[1]]
+        
+        # Initialize method and ain with the last two elements
+        length_split <- length(methods_split)
+        ain <- methods_split[length_split]
+        method <- methods_split[length_split - 1]
+        se <- normalize_se_combination(se, c(method), c(ain), combination_pattern, gamma.0 = gamma.0, reduce_correlation_by = reduce_correlation_by, NormicsVSN_quantile = NormicsVSN_quantile, top_x = top_x, VSN_quantile = VSN_quantile)
+        
+        # If there are more than two methods in the combination, process the rest
+        if (length(methods_split) > 2) {
+          for (i in (length_split - 2):1) {
+            ain <- paste(method, ain, sep = combination_pattern)
+            method <- methods_split[i]
+            
+            # Apply the subsequent combination
+            se <- normalize_se_combination(se, c(method), c(ain), combination_pattern, gamma.0 = gamma.0, reduce_correlation_by = reduce_correlation_by, NormicsVSN_quantile = NormicsVSN_quantile, top_x = top_x, VSN_quantile = VSN_quantile)
+          }
+        }
+      }
+    }
+  }
+  return(se)
+}
+
+
+
+# Load raw se
+
+source("real-world/data_preparation/li_stem_cells_prep.R")
+
+se <- medianNorm(se, ain = "raw", aout = "Median")
+
+se <- irsNorm(se, ain = "Median", aout = "IRS_on_Median")
+
+se <- limmaNorm(se, ain = "Median", aout = "limBE_on_Median")
+
+se <- limmaNorm(se, ain = "IRS_on_Median", aout = "limBE_on_IRS_on_Median")
+
+
+plot_PCA(se, color_by = "Timepoint", shape_by = "Batch") + theme

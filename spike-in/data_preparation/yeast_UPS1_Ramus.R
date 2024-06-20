@@ -26,9 +26,6 @@ conditions <- data.table("Concentration" = sort(unique(md$Concentration)), "Cond
 md <- merge(md, conditions, by="Concentration")
 md$Label <- paste0(md$Condition , "_", md$Replicate)
 
-comparisons <- c("I-D", "I-F", "H-G")
-
-
 
 se <- load_spike_data(data, 
                       md, 

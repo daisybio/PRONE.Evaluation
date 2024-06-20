@@ -77,10 +77,59 @@ ggsave("figures/DE_Methods_Evaluation_Barplot.png", width = 10, height = 12, dpi
 # Compare ranking of methods
 
 # sort methods according to median F1 score
-medians <- stats[,c("Assay", "F1Score", "Method")] %>% group_by(Assay, Method) %>% dplyr::summarise(Median = median(F1Score, na.rm=TRUE))
+medians <- stats_ROTS[,c("Assay", "Method", "F1Score")] %>% group_by(Assay, Method) %>% dplyr::summarise(Median = median(F1Score, na.rm=TRUE))
+medians <- medians[order(medians$Median),]
 
-medians_limma <- medians[medians$Method == "limma",]
-medians_ROTS <- medians[medians$Method == "ROTS",]
+stats_ROTS$Assay <- factor(stats_ROTS$Assay, levels = medians$Assay)
 
-medians_limma <- medians_limma[order(medians_limma$Median),]
-medians_ROTS <- medians_ROTS[order(medians_ROTS$Median),]
+f1_box <- ggplot(stats_ROTS[stats_ROTS$Assay != "log2"], aes (y = Assay, x = F1Score, fill = Assay)) + 
+  geom_boxplot() + 
+  scale_fill_manual(name = "Normalization", values = col_vector_norm[unique(stats_ROTS$Assay)]) + 
+  theme + theme(legend.position = "none") +
+  labs( y="Normalization Method", x = "F1 Score") +
+  scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1), limits = c(0,1))
+
+# Ecoli MaxLFQ
+dt <- data.table::as.data.table(stats[, c("Method", "Assay", "TP", "FP", "Dataset")])
+dt <- dt[dt$Dataset == "Ecoli_human_MaxLFQ",]
+dt$Dataset <- NULL
+dt <- melt(dt, id.vars = c("Method", "Assay"), value.name = "Count", variable.name = "Type")
+dt$Assay <- factor(dt$Assay, levels = medians$Assay)
+
+tps <- ggplot(dt[dt$Type == "TP",], aes(x = Assay, y = Count, fill = Method)) +
+  geom_bar(stat = "identity", position = position_dodge()) + theme + labs(y = "True Positives", x = "Normalization Method", fill = "DE Method") +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9")) + coord_flip()
+
+fps <- ggplot(dt[dt$Type == "FP",], aes(x = Assay, y = Count, fill = Method)) +
+  geom_bar(stat = "identity", position = position_dodge()) + theme + labs(y = "False Positives", x = "Normalization Method", fill = "DE Method") +
+  scale_fill_manual(values = c("#E69F00", "#56B4E9")) + coord_flip()
+
+(tps + fps) / f1_box + plot_layout(guides = "collect")
+
+
+# tps of limma / tps of ROTS for each assay and each data set
+dt_rots <- stats_ROTS[, c("Assay","Comparison", "Dataset", "TP", "FP")]
+colnames(dt_rots) <- c("Assay","Comparison", "Dataset", "TP_ROTS", "FP_ROTS")
+
+dt_limma <- stats_limma[, c("Assay", "Comparison","Dataset" , "TP", "FP")]
+colnames(dt_limma) <- c("Assay", "Comparison", "Dataset", "TP_limma", "FP_limma")
+
+dt <- merge(dt_rots, dt_limma, by = c("Assay", "Comparison", "Dataset"))
+
+dt <- dt[dt$Assay != "log2",]
+
+dt$DivTP <-  dt$TP_limma / dt$TP_ROTS
+dt$DivFP <- dt$FP_limma / dt$FP_ROTS
+
+# Division
+dt <- dt[, c("Assay", "Dataset", "DivTP", "DivFP")]
+colnames(dt) <- c("Assay", "Dataset", "TP", "FP")
+dt <- melt(dt, value.name = "Value", variable.name = "Class", measure.vars = c("TP", "FP"))
+
+dt$Assay <- factor(dt$Assay, levels = medians$Assay)
+tps_fps_div <- ggplot(dt, aes(x = Value, y = Assay, fill = Class)) + geom_boxplot() + 
+  theme + scale_x_log10() +
+  scale_fill_manual(values = c("#D55E00", "#0072B2")) + labs(x = "limma DEP Count / ROTS DEP Count (log10)", y = "Normalization Method")
+
+ggarrange(tps_fps_div, f1_box, labels = c("A", "B"))
+ggsave("figures/DE_ROTS_spike_in.png", width = 12, height = 6)

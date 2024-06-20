@@ -71,7 +71,6 @@ if(performPOMA){
 
 
 # Normalization
-
 se_norm <- normalize_se(se, norm_methods, combination_pattern = NULL, gamma.0 = 0.1)
 
 if(plot){

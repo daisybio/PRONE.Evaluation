@@ -22,4 +22,6 @@ se <- load_data(data,
                 label_column = "Label")
 se$Condition <- factor(se$Condition, levels = c("ref", "HC", "PTB", "Rx", "TBL"))
 
+se <- remove_samples_manually(se, column = "Label", values = c("1.HC_Pool1", "1.HC_Pool2"))
+
 saveRDS(se, "data/raw_real_world_se/tuberculosis_se.rds")

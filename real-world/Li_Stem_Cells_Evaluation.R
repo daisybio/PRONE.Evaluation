@@ -14,7 +14,7 @@ comparisons <- NULL
 
 
 # Check if DE and normalization objects already saved
-if(!file.exists(paste0("data/de_results_real_world/", data_name, "_se_norm.rds"))){
+if(!file.exists(paste0("data/de_results_real_world/", data_name, "_de_res.rds"))){
 # Perform preprocessing, normalization, DE analysis
   source("real-world/Real-World_Pipeline.R")
 }
@@ -32,208 +32,112 @@ log2_boxplot <- plot_boxplots(se_norm, ain = "log2", color_by = "Batch") + theme
 
 log2_pca / log2_boxplot
 
+
+# Categorize normalization methods
+assays <- names(assays(se_norm))
+#methods_to_remove <- c("VSN", "IRS_on_VSN", "limBE_on_VSN", "MAD", "IRS_on_MAD", "limBE_on_MAD", "EigenMS", "IRS_on_EigenMS", "limBE_on_EigenMS", "TMM", "IRS_on_TMM", "limBE_on_TMM")
+#assays <- assays[!assays %in% methods_to_remove]
+norm_methods_IRS <- assays[grepl("IRS_on_", assays)]
+norm_methods_limBE <- assays[grepl("limBE_on_", assays)]
+norm_methods_single <- assays[!assays %in% c("limBE", "IRS", "log2", norm_methods_IRS, norm_methods_limBE)]
+
 # Quantitative and Qualitative Evaluation
 
-plot_intragroup_PMAD(se_norm) + theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "None")
+#plot_intragroup_PMAD(se_norm, ain = norm_methods_single) + theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "None")
+
+#plot_intragroup_PMAD(se_norm, ain = norm_methods_IRS) + theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "None")
+
+
+# PCA of selected normalization methods
+
+#plot_PCA(se_norm, ain = norm_methods_single, color_by = "Timepoint", shape_by = "Batch")
+#plot_PCA(se_norm, ain = norm_methods_IRS, color_by = "Timepoint", shape_by = "Batch", label_by = "No")
+#plot_PCA(se_norm, ain = norm_methods_limBE, color_by = "Timepoint", shape_by = "Batch", label_by = "No")
 
 
 # Complete PCA plot of all normalization methods
 
-generate_complete_SE <- function(se, ain = NULL){
-  # create one big data table
-  big_dt <- NULL
-  big_cd <- NULL
-  # check if assays all in se
-  ain <- PRONE.R::check_input_assays(se, ain)
-  for(a in ain){
-    if(!a %in% c("raw")){
-      dt <- as.data.table(assays(se)[[a]])
-      colnames(dt) <- paste0(a, "_", colnames(dt))
-      cd <- as.data.table(colData(se))
-      cd$Column <- paste0(a,"_",cd$Column)
-      cd$Normalization <- a
-      if(is.null(big_dt)){
-        big_dt <- dt
-        big_cd <- cd
-      } else {
-        big_dt <- cbind(big_dt, dt)
-        big_cd <- rbind(big_cd, cd)
-      }
-    }
-  }
-  se_big <- SummarizedExperiment::SummarizedExperiment(assays = list(all = big_dt), colData = big_cd, rowData = as.data.table(rowData(se)))
-  metadata(se_big) <- metadata(se)
-  return(se_big)
-}
-
-
-
-assays <- names(assays(se_norm))
-
-assays <- assays[!assays %in% c("EigenMS", "MAD", "EigenMS_on_IRS", "EigenMS_on_limBE", "MAD_on_IRS", "MAD_on_limBE")]
-
 # find assays with _on_IRS
-norm_methods_IRS <- assays[grepl("_on_IRS", assays)]
-se_IRS <- generate_complete_SE(se_norm, ain = norm_methods_IRS)
-colData(se_IRS)$Normalization <- sapply(strsplit(colData(se_IRS)$Normalization, "_on_"), function(x) x[1])
+se_IRS <- PRONE::generate_complete_SE(se_norm, ain = norm_methods_IRS)
+colData(se_IRS)$Normalization <- sapply(strsplit(colData(se_IRS)$Normalization, "_on_"), function(x) x[2])
 
 # find assays with _on_limBE
-norm_methods_limBE <- assays[grepl("_on_limBE", assays)]
-se_limBE <- generate_complete_SE(se_norm, ain = norm_methods_limBE)
-colData(se_limBE)$Normalization <- sapply(strsplit(colData(se_limBE)$Normalization, "_on_"), function(x) x[1])
+se_limBE <- PRONE::generate_complete_SE(se_norm, ain = norm_methods_limBE)
+colData(se_limBE)$Normalization <- sapply(strsplit(colData(se_limBE)$Normalization, "_on_"), function(x) x[2])
 
 # single normalization methods
-norm_methods_single <- assays[!assays %in% c("limBE", "IRS", "log2", norm_methods_IRS, norm_methods_limBE)]
-se_single <- generate_complete_SE(se_norm, ain = norm_methods_single)
+se_single <- PRONE::generate_complete_SE(se_norm, ain = norm_methods_single)
 
 # PCA plots
 pca_single <- plot_PCA(se_single, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Batch") + 
-  theme + theme(strip.text = element_blank()) +
-  ggtitle("Single Normalization Methods")
-pca_IRS <- plot_PCA(se_IRS, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Batch") + 
-  theme + theme(strip.text = element_blank()) +
-  ggtitle("IRS Normalization")
-pca_limBE <- plot_PCA(se_limBE, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Batch") + 
-  theme + theme(strip.text = element_blank()) +
-  ggtitle("limBE Normalization")
+  theme + theme(strip.text = element_blank()) + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
 
-pca_single + pca_IRS + pca_limBE + patchwork::plot_layout(guides = "collect")
+pca_IRS <- plot_PCA(se_IRS, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Batch") + 
+  theme + theme(strip.text = element_blank()) + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
+
+pca_IRS_timepoint <- plot_PCA(se_IRS, color_by = "Timepoint", ain = c("all"), label_by = "No", shape_by = "Batch") + 
+  theme + theme(strip.text = element_blank()) 
+
+ggarrange(pca_single, pca_IRS, labels = c("A", "B"), ncol = 2, common.legend = TRUE, legend = "right", font.label = list(size = 18))
+
+# try other PCA plot
+
+single_PCA_dt <- PRONE:::get_complete_pca_dt(se_norm, norm_methods_single)
+coldata <- as.data.table(colData(se_norm))
+single_PCA_dt <- merge(single_PCA_dt, coldata, by = "Column")
+p1 <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Batch)) + geom_point(size = 3) + theme + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
+p1_timepoint <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Timepoint, shape = Batch)) + geom_point(size = 3) + theme 
+
+IRS_PCA_dt <- PRONE:::get_complete_pca_dt(se_norm, norm_methods_IRS)
+IRS_PCA_dt <- merge(IRS_PCA_dt, coldata, by = "Column")
+IRS_PCA_dt$Assay <- sapply(strsplit(IRS_PCA_dt$Assay, "_on_"), function(x) x[2]) 
+p2 <- ggplot(IRS_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Batch)) + geom_point(size = 3) + theme + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
+p2_timepoint <- ggplot(IRS_PCA_dt, aes( x= PC1, y = PC2, color = Timepoint, shape = Batch)) + geom_point(size = 3) + theme 
+
+p1p2 <- ggarrange(p1, p2, common.legend = TRUE, legend = "right", labels = c("A", "B"), ncol = 2)
+p1p2_timepoint <- ggarrange(p1_timepoint, p2_timepoint, common.legend = TRUE, legend = "right", labels = c("A", "B"), ncol = 2)
+
+ggarrange(p1p2, p2_timepoint, legend = "right", labels = c("", "C"), ncol = 2)
+
+# Check densities, boxplots, normal PCA or removed methods
+plot_boxplots(se_norm, ain = methods_to_remove)
+plot_densities(se_norm, ain = methods_to_remove)
+plot_PCA(se_norm, ain = methods_to_remove, color_by = "Batch", shape_by = "Timepoint", label_by = "No")
+
+
+#pca_limBE <- plot_PCA(se_limBE, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Batch") + 
+#  theme + theme(strip.text = element_blank()) +
+#  ggtitle("limBE Normalization")  + scale_color_manual(values = col_vector_norm)
+
+#pca_single + pca_IRS + pca_limBE + patchwork::plot_layout(guides = "collect")
 
 # DEP Comparison
 
 # Methods based on IRS-normalized data
-de_res_IRS <- de_res[de_res$Assay %in% norm_methods_IRS,]
-plot_overview_DE_bar(de_res_IRS, plot_type = "facet_regulation")
-plot_overview_DE_bar(de_res_IRS[de_res_IRS$Assay != "EigenMS_on_IRS",], plot_type = "facet_regulation")
+de_res_IRS <- de_res[de_res$Assay %in% c(norm_methods_IRS),]
+de_res_IRS$Assay <- sapply(strsplit(de_res_IRS$Assay, "_on_"), function(x) x[2])
+plot_overview_DE_bar(de_res_IRS, plot_type = "facet_regulation") + ggtitle("") + theme
 
-plot_overview_DE_tile(de_res_IRS)
-plot_overview_DE_tile(de_res_IRS[de_res_IRS$Assay != "EigenMS_on_IRS",])
+# remove EigenMS
+de_res_IRS_no_EigenMS <- de_res_IRS[de_res_IRS$Assay != "EigenMS",]
+plot_overview_DE_bar(de_res_IRS_no_EigenMS, plot_type = "facet_regulation")
 
-# Intersection Analysis
+# apply other thresholds
+new_de_res_IRS <- PRONE::apply_thresholds(de_res_IRS)
 
-plot_upset_DE(de_res_IRS[de_res_IRS$Assay != "EigenMS_on_IRS",], plot_type = "stacked", min_degree = 12)
+plot_overview_DE_bar(new_de_res_IRS, plot_type = "facet_regulation") +  ggtitle("") + theme
 
-
-new_de_res_IRS <- PRONE.R::apply_thresholds(de_res_IRS)
-plot_overview_DE_bar(new_de_res_IRS, plot_type = "facet_regulation")
-
-plot_overview_DE_bar(new_de_res_IRS[!new_de_res_IRS$Assay %in% c("EigenMS_on_IRS", "TMM_on_IRS")], plot_type = "facet_regulation")
-
-# New Heatmap (x -> normalization methods, y -> normalization methods, shared DEGs)
-# get matrix with rows and columns being the normalization methods and the values the number of shared protein IDs
-dt <- new_de_res_IRS
-#dt <- dt[dt$Comparison == "D0-D14",]
-dt <- dt[dt$Change != "No Change",]
-dt <- dcast(dt, Assay ~ Protein.IDs, fun.aggregate = length)
-assays <- dt$Assay
-intersections <- as.data.frame(lapply(dt[, -1], function(x) as.integer(x > 0)))
-matrix_dt <- as.matrix(intersections)
-shared_ids_matrix <- matrix_dt %*% t(matrix_dt)
-rownames(shared_ids_matrix) <- assays
-colnames(shared_ids_matrix) <- assays
-shared_ids_matrix[upper.tri(shared_ids_matrix)] <- NA
-melted_dt <- melt(shared_ids_matrix, na.rm = TRUE)
-ggplot(melted_dt, aes(x = Var1, y = Var2, fill = value)) +
-  geom_tile() +
-  scale_fill_gradient(low = "#f2f569", high = "#4daabd") +
-  labs(x = "Normalization Method", y = "Normalization Method", fill = "Number of Shared DEGs") +
-  theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-
-# Jaccard index
-dt <- t(matrix_dt)
-dt <- as.data.frame(dt)
-colnames(dt) <- assays
-
-jaccard <- function(x, y){
-  M.11 <- sum(x == 1 & y == 1)
-  M.10 <- sum(x == 1 & y == 0)
-  M.01 <- sum(x == 0 & y == 1)
-  return(M.11 / (M.11 + M.10 + M.01))
-}
-
-m <- matrix(data = NA, nrow = ncol(dt), ncol = ncol(dt))
-for(i in 1:ncol(dt)){
-  for(j in 1:ncol(dt)){
-    col1 <- colnames(dt)[i]
-    col2 <- colnames(dt)[j]
-    if(col1 == col2){
-      m[i, j] <- 1
-    } else if(i > j){
-      m[i, j] <- jaccard(dt[, col1], dt[, col2])
-    }
-  }
-}
-colnames(m) <- colnames(dt)
-rownames(m) <- colnames(dt)
-melted_m <- melt(m, na.rm = TRUE)
-
-ggplot(melted_m, aes(x = Var1, y = Var2, fill = value)) +
-  geom_tile() +
-  geom_text(aes(label = round(value, digits = 2))) +
-  scale_fill_gradient(low = "white", high = "#4daabd") +
-  labs(x = "Normalization Method", y = "Normalization Method", fill = "Jaccard Similarity") +
-  theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-
-plot_volcano_DE(new_de_res_IRS, comparisons = c("D0-D14"))
-
-# check distribution of p.adjust values in the different normalization methods
-
-ggplot(new_de_res_IRS, aes(x = adj.P.Val)) +
-  geom_histogram(alpha = 0.5) +
-  facet_wrap(~Assay, scales = "free") +
-  labs(x = "p.adjust", fill = "Normalization Method") +
-  theme
-
-ggplot(new_de_res_IRS, aes(x = logFC)) +
-  geom_histogram(alpha = 0.5) +
-  facet_wrap(~Assay, scales = "free") +
-  labs(x = "logFC", fill = "Normalization Method") +
-  theme
-
-ggplot(new_de_res_IRS, aes(x = P.Value)) +
-  geom_histogram(alpha = 0.5) +
-  facet_wrap(~Assay, scales = "free") +
-  labs(x = "P.Value", fill = "Normalization Method") +
-  theme
-
-# Focus on one comparison
-
-new_de_res_IRS_D0_D14 <- new_de_res_IRS[new_de_res_IRS$Comparison == "D0-D14",]
-
-low_regulated_protein_de <- new_de_res_IRS_D0_D14[new_de_res_IRS_D0_D14$Protein.IDs == "A0A087WYH7;O15230",]
-
-# Check data distribution of VSN, NormicsVSN, NormicsMedian
-
-plot_densities(se_norm, ain = c("VSN", "Median", "RobNorm", "NormicsMedian", "log2", "NormicsVSN", "LoessF"), color_by = "Timepoint") + theme
-plot_boxplots(se_norm, ain = c("VSN", "Median", "RobNorm", "NormicsMedian", "log2", "NormicsVSN", "LoessF"), color_by = "Timepoint") + theme
+plot_volcano_DE(new_de_res_IRS, comparisons = c("D0-D14")) + theme
 
 
-# Check performing log2 before NormicsMedian
-se_norm <- vsnNorm(se, aout = "VSN_new")
-plot_densities(se_norm, ain = c("VSN", "Median", "VSN_new", "LoessF"), color_by = "Timepoint") + theme
+new_de_res_IRS <- new_de_res_IRS[!new_de_res_IRS$Assay %in% c("TMM", "EigenMS"),]
+plot_overview_DE_bar(new_de_res_IRS, plot_type = "facet_regulation") +  ggtitle("") + theme
 
+plot_jaccard_heatmap(new_de_res_IRS, plot_type = "all") + theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
-# try other vsn normalization
+# Stacked barplot of overlaps
+plot_upset_DE(new_de_res_IRS, plot_type = "stacked")$upset
 
-se <- readRDS("data/li_et_al_preprocessed_se.rds")
+# Consensus
+DE_candidates <- PRONE::extract_consensus_DE_candidates(new_de_res_IRS, ain = NULL, norm_thr = 0.9, per_comparison = FALSE)
 
-# Run IRS on raw data (but result = log2)
-se <- irsNorm(se, ain = "raw", aout = "IRS")
-
-# Run VSN on IRS (IRS -> raw data -> glog)
-se <- vsnNorm(se, ain = "IRS", aout = "VSN_on_IRS")
-se <- medianNorm(se, ain = "IRS", aout = "Median_on_IRS")
-se <- robNorm(se, ain = "IRS", aout = "RobNorm_on_IRS")
-
-se <- normicsNorm(se, ain = "IRS", aout = "NormicsVSN_on_IRS", method = "NormicsVSN", NormicsVSN_quantile = 0.9, reduce_correlation_by = 3)
-se <- normicsNorm(se, ain = "IRS", aout = "NormicsVSN_on_IRS_0.8", method = "NormicsVSN", NormicsVSN_quantile = 0.8, reduce_correlation_by = 3)
-se <- normicsNorm(se, ain = "IRS", aout = "NormicsMedian_on_IRS", method = "NormicsMedian", NormicsVSN_quantile = 0.8, reduce_correlation_by = 3)
-
-
-SummarizedExperiment::assays(se)$IRS <- NULL
-se <- remove_reference_samples(se)
-
-comparisons <- specify_comparisons(se)
-de_res <- run_DE(se, comparisons = comparisons)
-
-plot_overview_DE_bar(de_res, plot_type = "facet_regulation")

@@ -1,7 +1,7 @@
 ####### -------- Script for Evaluation of Performance of Normalization Approaches -------- #######
 
-dataset_naming <- c("dS1", "dS2", "dS3", "dS4", "dS5", "dS6", "dS7")
-names(dataset_naming) <- c("CPTAC6_UPS1_Valikangas", "yeast_UPS1_Ramus", "yeast_UPS1_Pursiheimo_Valikangas", "Ecoli_human_Ionstar", "Ecoli_human_MaxLFQ", "Ecoli_human_DEqMS", "yeast_human_OConnell")
+dataset_naming <- c("dS1", "dS2", "dS3", "dS4", "dS5", "dS6")
+names(dataset_naming) <- c("CPTAC6_UPS1_Valikangas", "yeast_UPS1_Ramus", "Ecoli_human_Ionstar", "Ecoli_human_MaxLFQ", "Ecoli_human_DEqMS", "yeast_human_OConnell")
 
 ####### -------- Read normalized SE -------- #######
 se_norm_list <- list()
@@ -157,6 +157,7 @@ for(auc_file in list.files(file.path("data/de_results_spike_in/"), pattern = "de
 auc <- rbindlist(auc_list)
 auc <- auc[, c("Assay", "Dataset", "AUC")]
 
+
 ####### -------- Plot DE Plots -------- #######
 
 # sort methods according to median F1 score
@@ -223,6 +224,8 @@ for(de_file in list.files(file.path("data/de_results_spike_in/"), pattern = "de_
 de_res <- rbindlist(de_list)
 de_res$Difference <- de_res$logFC - de_res$Truth
 
+col_vector_norm <- c(col_vector_norm, "log2" = "yellow")
+
 ####### -------- Plot LogFC Observed vs. Expected -------- #######
 
 bg <- ggplot(de_res[de_res$Spiked == "BG",], aes(x = logFC, color = Assay)) + geom_density() + geom_vline(xintercept = 0, linetype="dotted") + 
@@ -238,12 +241,4 @@ spike <- ggplot(de_res[de_res$Spiked != "BG",], aes( x = Assay, y = Difference, 
 ggarrange(spike, bg, ncol = 1, labels = c("A", "B"), common.legend = TRUE, legend = "right")
 ggsave("figures/expected_observed_logFCs_overall.png", width = 8, height = 10)
 
-de_logFC_diff <- de_res %>% dplyr::group_by(Assay, Spiked) %>% dplyr::summarise(AverageDiff = mean(Difference, na.rm = TRUE), SDDiff = sd(Difference, na.rm = TRUE))
-
-ggplot(de_logFC_diff, aes( x = Assay, y = AverageDiff, fill = Assay)) + geom_bar(stat = "identity", position = position_dodge(.9)) +
-  facet_wrap(~Spiked, scales = "free_y") +   geom_errorbar(aes(ymin = AverageDiff - SDDiff, ymax = AverageDiff + SDDiff), width = .4, position = position_dodge(.9))+ 
-  theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + 
-  scale_fill_manual(name = "Normalization Method", values = col_vector_norm) + 
-  labs(x = "Normalization Method", y="Difference in LogFCs (Observed - Theoretical)") 
-ggsave("figures/expected_observed_logFCs_overall.png", width = 10, height = 20)
 

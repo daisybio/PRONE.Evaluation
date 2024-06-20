@@ -44,7 +44,10 @@ se <- filter_proteins_by_value(se, column_name = "Only.identified.by.site", valu
 
 #plot_NA_density(se)
 
+
 #plot_NA_heatmap(se)
+
+#plot_heatmap(se, ain = "log2", color_by = "Batch")
 
 se <- filter_NA_proteins_by_threshold(se, thr = NA_thr)
 
@@ -52,7 +55,7 @@ se <- filter_NA_proteins_by_threshold(se, thr = NA_thr)
 
 # Outlier Detection
 
-poma_results <- detect_outliers_POMA(se, ain = "raw")
+poma_results <- detect_outliers_POMA(se, ain = "log2")
 
 #poma_results$polygon_plot
 
@@ -67,7 +70,6 @@ se <- remove_POMA_outliers(se, poma_results$outliers)
 # Normalization
 
 norm_methods <- get_normalization_methods()
-norm_methods <- norm_methods[norm_methods != "HarmonizR"] # this does not work yet!
 
 if(!TMT){
   norm_methods <- norm_methods[!norm_methods %in% c("limBE", "IRS")]
@@ -76,8 +78,16 @@ if(!TMT){
 
 se <- normalize_se(se, methods = norm_methods, reduce_correlation_by = 1, gamma.0 = 0.1)
 
+se <- vsnNorm(se, ain = "raw", aout = "VSN_0.5", VSN_quantile = 0.5)
+se <- normicsNorm(se, ain = "raw", aout = "NormicsVSN_0.5", NormicsVSN_quantile = 0.5)
+
+
 if(TMT){
-  se <- normalize_se_combination(se, methods = norm_methods[!norm_methods %in% c("IRS", "limBE")], ains = c("IRS", "limBE"), "_on_", reduce_correlation_by = 1, gamma.0 = 0.1)
+  se <- normalize_se_combination(se, methods = c("IRS", "limBE"), ains = norm_methods[!norm_methods %in% c("IRS", "limBE")], combination_pattern = "_on_", reduce_correlation_by = 1, gamma.0 = 0.1)
+  se <- irsNorm(se, ain = "VSN_0.5", aout = "IRS_on_VSN_0.5")
+  se <- limmaNorm(se, ain = "VSN_0.5", aout = "limBE_on_VSN_0.5")
+  se <- irsNorm(se, ain = "NormicsVSN_0.5", aout = "IRS_on_NormicsVSN_0.5")
+  se <- limmaNorm(se, ain = "NormicsVSN_0.5", aout = "limBE_on_NormicsVSN_0.5")
 }
 
 # Evaluation
