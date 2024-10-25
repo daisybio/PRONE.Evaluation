@@ -4,12 +4,12 @@ nr_samples <- ncol(se)
 nr_conditions <- length(unique(as.data.table(colData(se))[[metadata(se)$condition]]))
 
 # Remove proteins with missing values in all samples
-se <- filter_complete_NA_proteins(se)
+se <- filter_out_complete_NA_proteins(se)
 
 # Remove reverse hits, contamininants, and only identified by site
-se <- filter_proteins_by_value(se, "Reverse", "+")
-se <- filter_proteins_by_value(se, "Potential.contaminant", "+")
-se <- filter_proteins_by_value(se, "Only.identified.by.site", "+")
+se <- filter_out_proteins_by_value(se, "Reverse", "+")
+se <- filter_out_proteins_by_value(se, "Potential.contaminant", "+")
+se <- filter_out_proteins_by_value(se, "Only.identified.by.site", "+")
 
 nas <- get_NA_overview(se, ain = "log2")
 
@@ -39,7 +39,7 @@ if(plot){
   plot_NA_frequency(se)
 }
 
-se <- filter_NA_proteins_by_threshold(se, thr = NA_thr)
+se <- filter_out_NA_proteins_by_threshold(se, thr = NA_thr)
 
 nr_final <- nrow(se)
 
@@ -52,7 +52,7 @@ if(plot){
 if(plot){
   plot_nr_prot_samples(se, color_by = NULL, label_by = NULL)
   
-  plot_tot_int_samples(se, color_by = "Condition", label_by = "Label")
+  plot_tot_int_samples(se, color_by = NULL, label_by = NULL)
 }
 
 if(performPOMA){
@@ -64,9 +64,10 @@ if(performPOMA){
   poma_res$distance_boxplot
   
   poma_res$outliers
-  
-  se <- remove_POMA_outliers(se, poma_res$outliers)
-  
+}
+
+if(removePOMAoutliers){
+  se <- remove_outliers_POMA(se, ain = "log2")
 }
 
 
@@ -74,7 +75,7 @@ if(performPOMA){
 se_norm <- normalize_se(se, norm_methods, combination_pattern = NULL, gamma.0 = 0.1)
 
 if(plot){
-  plot_boxplot(se_norm, ain = NULL, color_by = NULL, label_by = NULL, ncol = 3, facet_norm = TRUE)
+  plot_boxplots(se_norm, ain = NULL, color_by = NULL, label_by = NULL, ncol = 3, facet_norm = TRUE)
   plot_densities(se_norm, ain = NULL, color_by = NULL, facet_norm = TRUE)
   plot_PCA(se_norm, ain = NULL, color_by = NULL, label_by = "No", shape_by = NULL, facet_norm = TRUE, facet_by = NULL)
   plot_intragroup_PMAD(se_norm, ain = NULL, condition = NULL, diff = TRUE)

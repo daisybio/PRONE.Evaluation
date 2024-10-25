@@ -1,5 +1,5 @@
 ## ----- Load required libraries -----
-required_packages <- c("data.table", "readxl", "stringr", "ggplot2", "RColorBrewer", "ggpubr", "BiocManager")
+required_packages <- c("data.table", "readxl", "stringr", "ggplot2", "RColorBrewer", "ggpubr", "BiocManager", "patchwork", "dplyr")
 for(package in required_packages){
   if(!require(package,character.only = TRUE, quietly = TRUE)) install.packages(package, dependencies = TRUE, quietly = TRUE)
   library(package, character.only = TRUE, quietly = TRUE)
@@ -51,5 +51,5 @@ theme <- theme_bw() + theme(axis.text.x = element_text(size = 12),
 col_vector_norm <- c("#E6AB02","#A6761D","#E7298A","#FDDAEC","#B15928", "#E41A1C", "#A6CEE3", "#1F78B4", "#B2DF8A", "#4DAF4A","#355E3B", "#D9D9D9",
                     "grey40","#FDBF6F","#FF7F00","#CAB2D6","#6A3D9A", "#eb7f78","#ece4f1")
 names(col_vector_norm) <- c("GlobalMean", "GlobalMedian", "Median", "Mean", "Quantile", "VSN", "LoessF", "LoessCyc", "RLR", "RlrMA", "RlrMACyc", "EigenMS", "MAD", "RobNorm", "TMM", "NormicsVSN", "NormicsMedian", "VSN_0.5", "NormicsVSN_0.5")
-
+col_vector_norm <- c("log2" = "yellow", col_vector_norm)
 

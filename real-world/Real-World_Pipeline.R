@@ -23,10 +23,10 @@ dim(se)
 
 # Pre-filtering
 
-se <- filter_complete_NA_proteins(se)
-se <- filter_proteins_by_value(se, column_name = "Reverse", values = c("+"))
-se <- filter_proteins_by_value(se, column_name = "Potential.contaminant", values = c("+"))
-se <- filter_proteins_by_value(se, column_name = "Only.identified.by.site", values = c("+"))
+se <- filter_out_complete_NA_proteins(se)
+se <- filter_out_proteins_by_value(se, column_name = "Reverse", values = c("+"))
+se <- filter_out_proteins_by_value(se, column_name = "Potential.contaminant", values = c("+"))
+se <- filter_out_proteins_by_value(se, column_name = "Only.identified.by.site", values = c("+"))
 
 # Overview Plots
 
@@ -49,7 +49,7 @@ se <- filter_proteins_by_value(se, column_name = "Only.identified.by.site", valu
 
 #plot_heatmap(se, ain = "log2", color_by = "Batch")
 
-se <- filter_NA_proteins_by_threshold(se, thr = NA_thr)
+se <- filter_out_NA_proteins_by_threshold(se, thr = NA_thr)
 
 #plot_NA_heatmap(se)
 
@@ -63,9 +63,9 @@ poma_results <- detect_outliers_POMA(se, ain = "log2")
 
 #poma_results$outliers
 
-se <- remove_POMA_outliers(se, poma_results$outliers)
+#se <- remove_POMA_outliers(se, poma_results$outliers)
 
-#saveRDS(se, "data/li_et_al_preprocessed_se.rds")
+saveRDS(se, "data/li_et_al_preprocessed_se.rds")
 
 # Normalization
 

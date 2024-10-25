@@ -54,17 +54,27 @@ plot_densities(se_norm, ncol = 4)
 
 # All normalization methods
 se_big_norms <- generate_complete_SE(se_norm, ain =  NULL)
-plot_PCA(se_big_norms, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Condition") + 
+one_pca <- plot_PCA(se_big_norms, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Condition") + 
   theme + theme(strip.text = element_blank()) +
-  ggtitle("Single Normalization Methods") + scale_color_manual(values = col_vector_norm)
+  ggtitle("Single Normalization Methods") + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
+
+assays <- names(assays(se_norm))
+assays <- assays[! assays %in% c("MAD")]
+se_big_norms <- generate_complete_SE(se_norm, ain =  assays)
+one_pca_no_MAD <- plot_PCA(se_big_norms, color_by = "Normalization", ain = c("all"), label_by = "No", shape_by = "Condition") + 
+  theme + theme(strip.text = element_blank()) +
+  ggtitle("Single Normalization Methods without MAD, VSN") + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
+
+one_pca + one_pca_no_MAD
 
 
 single_PCA_dt <- PRONE:::get_complete_pca_dt(se_norm, ain = NULL)
 coldata <- as.data.table(colData(se_norm))
 single_PCA_dt <- merge(single_PCA_dt, coldata, by = "Column")
 p1 <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Condition)) + geom_point(size = 3) + theme + scale_color_manual(name = "Normalization Method", values = col_vector_norm)
+p2 <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Condition)) + geom_point(size = 3) + theme 
 
-
+p1 + p2
 
 assays <- names(assays(se_norm))
 assays <- assays[! assays %in% c("MAD")]
@@ -75,6 +85,15 @@ plot_PCA(se_big_norms, color_by = "Normalization", ain = c("all"), label_by = "N
   ggtitle("Single Normalization Methods") + scale_color_manual(values = col_vector_norm)
 
 # DEP Comparison
+
+DE_plot <- plot_overview_DE_bar(de_res, plot_type = "single")[[1]] +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white")) + ylab("Normalization Method") + theme
+
+jaccard_plot <- plot_jaccard_heatmap(de_res, plot_type = "all", comparisons = NULL) + 
+  theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + ggplot2::scale_fill_gradient(low = "white", 
+                                                                                                    high = "#0072B2")
+
+(DE_plot / jaccard_plot) + plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
 
 plot_overview_DE_bar(de_res)
 

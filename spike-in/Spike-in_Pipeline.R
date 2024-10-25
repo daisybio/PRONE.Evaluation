@@ -3,7 +3,8 @@
 # Set spike-in configuration
 plot <- FALSE
 NA_thr <- 0.8
-performPOMA <- FALSE
+performPOMA <- TRUE
+removePOMAoutliers <- FALSE
 
 DE_method <- "limma"
 logFC <- FALSE
@@ -16,6 +17,7 @@ alpha <- 0.05
 message("Loading of packages...")
 source("config.R")
 
+norm_methods <- get_normalization_methods()
 norm_methods <- norm_methods[!norm_methods %in% c("IRS", "limBE")]
 
 # Create directories
