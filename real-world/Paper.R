@@ -41,14 +41,14 @@ li_de_res_new$Assay <- sapply(strsplit(li_de_res_new$Assay, "_on_"), function(x)
 cptac_de_res <- cptac_de_res[cptac_de_res$Assay %in% c(norm_methods_limBE),]
 cptac_de_res$Assay <- sapply(strsplit(cptac_de_res$Assay, "_on_"), function(x) x[2])
 
-li_overview_de_plot <- plot_overview_DE_bar(li_de_res_new, plot_type = "single", comparisons = c("D0-D14"))[[1]] +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = "none") + ylab("Normalization Method")
+li_overview_de_plot <- plot_overview_DE_bar(li_de_res_new, plot_type = "single", comparisons = c("D0-D14"))[[1]] +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = "none") + ylab("Normalization Method") + ggtitle("DE Results of Cell Culture Dataset dR1")
 li_jaccard_heatmap <- plot_jaccard_heatmap(li_de_res_new, plot_type = "all", comparisons = c("D0-D14")) + theme + theme(axis.text.x = element_text(angle = 90, vjust =0.5), legend.position = "none")
 
-cptac_overview_de_plot <- plot_overview_DE_bar(cptac_de_res, plot_type = "single")[[1]]  +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = c(0.85,0.7), legend.box.background = element_rect(colour = "black")) + ylab("Normalization Method") 
+cptac_overview_de_plot <- plot_overview_DE_bar(cptac_de_res, plot_type = "single")[[1]]  +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = c(0.85,0.7), legend.box.background = element_rect(colour = "black")) + ylab("Normalization Method") + ggtitle("DE Results of Clinical Cancer Dataset dR2")
 cptac_jaccard_heatmap <- plot_jaccard_heatmap(cptac_de_res, plot_type = "all") + theme + theme(axis.text.x = element_text(angle = 90, vjust =0.5), legend.position = c(0.85,0.8), legend.box.background = element_rect(colour = "black")) 
 
-cptac_jaccard_heatmap <- cptac_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev)
-li_jaccard_heatmap <- li_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev)
+cptac_jaccard_heatmap <- cptac_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev) + ggtitle("Intersection Analysis of DE Results of Clincal Cancer Dataset dR2")
+li_jaccard_heatmap <- li_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev) + ggtitle("Intersection Analysis of DE Results of Cell Culture Dataset dR1")
 
 
 li_jaccard_heatmap$layers[[2]] <- NULL
@@ -61,7 +61,12 @@ cptac_jaccard_heatmap <- cptac_jaccard_heatmap + geom_text(aes(label = round(val
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold", size = 23))
 
-ggsave("figures/de_results_real_world_paper.png", width = 16, height = 14, dpi = 300)
+(li_overview_de_plot + cptac_overview_de_plot + plot_layout(guides = "keep", axes = "collect", axis_titles = "keep"))  / 
+  (li_jaccard_heatmap + cptac_jaccard_heatmap + plot_layout(guides = "keep", axes = "collect", axis_titles = "keep")) + 
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold", size = 23))
+
+ggsave("figures/de_results_real_world_paper.png", width = 14, height = 12, dpi = 300)
 
 # Poster
 

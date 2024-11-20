@@ -32,30 +32,25 @@ for(dataset in names(se_norm_list)){
   # PMAD intragroup
   avgmadmem <- calculateAvgMadMem(assays, data.table::as.data.table(SummarizedExperiment::colData(se))[,get(condition)])
   PMAD_intra <- data.table::as.data.table(avgmadmem)
-  PMAD_intra <- data.table::melt(PMAD_intra, measure.vars = colnames(PMAD_intra), variable.name = "Normalization", value.name = "PMAD")
+  # set column named by condition variable to rownames of avgmadmem
+  PMAD_intra$Condition <- rownames(avgmadmem)
+  PMAD_intra <- data.table::melt(PMAD_intra, measure.vars = colnames(PMAD_intra)[colnames(PMAD_intra) != "Condition"], variable.name = "Normalization", value.name = "PMAD")
   PMAD_intra$Normalization <- factor(PMAD_intra$Normalization, levels = sort(as.character(unique(PMAD_intra$Normalization))))
   PMAD_intra$Dataset <- dataset
-  avgmadmempdiff<- calculatePercentageAvgDiffInMat(avgmadmem)
-  PMAD_diff <- data.table(Normalization = names(assays), PMAD = avgmadmempdiff)
-  sort_methods <- sort(as.character(unique(PMAD_diff$Normalization)))
-  PMAD_diff$Normalization <- factor(PMAD_diff$Normalization, levels=sort_methods)
-  PMAD_diff$Dataset <- dataset
   if(is.null(PMAD_intra_overall)){
     PMAD_intra_overall <- PMAD_intra
-    PMAD_diff_overall <- PMAD_diff
   } else {
     PMAD_intra_overall <- rbind(PMAD_intra_overall, PMAD_intra)
-    PMAD_diff_overall <- rbind(PMAD_diff_overall, PMAD_diff)
   }
 }
 
 # take median over all datasets
-PMAD_per_norm <- PMAD_intra_overall %>% group_by(Normalization) %>% summarize(Median = median(PMAD, na.rm = TRUE)) %>% as.data.table()
+PMAD_per_norm <- PMAD_intra_overall %>% dplyr::group_by(Normalization) %>% dplyr::summarize(Median = median(PMAD, na.rm = TRUE)) %>% as.data.table()
 # sort norm methods by median PMAD
 PMAD_per_norm <- PMAD_per_norm[order(PMAD_per_norm$Median),]
 
 # Calculate median and median absolute deviation over sample groups per normalization method and dataset
-PMAD_table <- PMAD_intra_overall %>% group_by(Normalization, Dataset) %>% summarize(Median = median(PMAD, na.rm = TRUE), MAD = mad(PMAD, na.rm = TRUE))
+PMAD_table <- PMAD_intra_overall %>% dplyr::group_by(Normalization, Dataset, Condition) %>% dplyr::summarize(Median = median(PMAD, na.rm = TRUE), MAD = mad(PMAD, na.rm = TRUE))
 PMAD_table$Med_MAD <- paste0(round(PMAD_table$Median, 3), " (", round(PMAD_table$MAD, 3), ")")
 PMAD_table$Median <- NULL
 PMAD_table$MAD <- NULL
@@ -72,10 +67,13 @@ write.csv(PMAD_table, file = "tables/PMAD_median.csv", col.names = TRUE, row.nam
 
 # plot
 PMAD_intra_overall$Normalization <- factor(PMAD_intra_overall$Normalization, levels = rev(PMAD_per_norm$Normalization))
+PMAD_intra_overall$Pairs <- paste0(PMAD_intra_overall$Dataset, "_", PMAD_intra_overall$Condition)
+PMAD_intra_overall[order(PMAD_intra_overall$Pairs, PMAD_intra_overall$Normalization), ]
 PMAD_plot <- ggplot(PMAD_intra_overall, aes(y=PMAD, x = Normalization, fill = Normalization)) + theme + 
   geom_boxplot() +
   labs(y = "PMAD", x="Normalization Method") + guides(fill="none") + scale_fill_manual(values = col_vector_norm) +
   stat_summary(fun = mean, geom = "point", shape = 23, size = 2, color = "black") +
+  stat_compare_means(label = "p.signif", method = "wilcox.test", ref.group = "MAD", paired = TRUE, vjust = 0.7, hjust = 1, label.y = 0.48) +
   #stat_compare_means(label.y = 0.3) +
   coord_flip()
   
@@ -133,13 +131,14 @@ corr_plot <- ggplot(cor_intra_overall, aes(y=Correlation, x = Normalization, fil
   geom_boxplot() +
   labs(y = "Pearson Correlation", x="Normalization Method") + guides(fill="none") + scale_fill_manual(values = col_vector_norm) +
   stat_summary(fun.y = mean, geom = "point", shape = 23, size = 2, color = "black") +
+  stat_compare_means(label = "p.signif", method = "wilcox.test", ref.group = "EigenMS", paired = TRUE, vjust = 0.7, hjust = 1, label.y = 1.03) +
   #stat_compare_means(label.y = 0.85) +
   coord_flip()
 
 
 # Combine PMAD and Correlation plots
 PMAD_plot + corr_plot + plot_layout(guides = "collect", axis_titles = "collect", axes = "collect") + plot_annotation(tag_levels = "A") &
-  theme(plot.tag = element_text(face = "bold"))
+  theme(plot.tag = element_text(face = "bold", size = 20))
 
 ggsave("figures/intragroup_variation_overall.png", width = 12, height = 6)
 
@@ -192,7 +191,7 @@ for(dataset in names(dataset_naming)){
 
 
 # F1 Score Violin 
-dt <- stats[, c("Assay", "F1Score", "Dataset"), with = FALSE]
+dt <- stats[, c("Assay", "F1Score", "Dataset", "Comparison"), with = FALSE]
 dt$Assay <- factor(dt$Assay, levels = medians$Assay)
 
 f1_violins <- ggplot(dt, aes (x = Assay, y = F1Score, fill = Assay)) + 
@@ -361,7 +360,7 @@ spike <- ggplot(de_res[de_res$Spiked != "BG",], aes( x = Assay, y = Difference, 
   geom_boxplot(width = 0.2, outlier.shape = NA) +  stat_boxplot(geom="errorbar", width = 0.2)+ 
   theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + geom_hline(yintercept = 0, linetype="dotted") +
   scale_fill_manual(name = "Normalization Method", values = col_vector_norm) + 
-  labs(x = "Normalization Method", y="Observed - Theoretical LogFCs") 
+  labs(x = "Normalization Method", y="Observed - Theoretical LogFCs") + ggtitle("Spike-In Proteins")
 
 
 # helper function
@@ -382,15 +381,15 @@ bg <- ggplot(bg_de_res, aes(x = Assay, y = logFC_with_NA, fill = Assay)) +  geom
   geom_boxplot(aes(y = logFC), width = 0.2, outliers = FALSE) +  stat_boxplot(geom="errorbar", width = 0.2)+ 
   theme + theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + geom_hline(yintercept = 0, linetype="dotted") +
   scale_fill_manual(name = "Normalization Method", values = col_vector_norm) + 
-  labs(x = "Normalization Method", y="LogFCs") 
+  labs(x = "Normalization Method", y="LogFCs") + ggtitle("Background Proteins")
 
 tmp <- bg_de_res %>% group_by(Assay) %>% summarize(Median = median(logFC, na.rm = TRUE), SD = sd(logFC, na.rm = TRUE)) %>% arrange(Median)
 tmp[order(tmp$Median),]
 
 spike / bg + plot_layout(guides = "collect", axis_titles = "collect", axes = "collect") + plot_annotation(tag_levels = "A") &
-  theme(plot.tag = element_text(face = "bold"))
+  theme(plot.tag = element_text(face = "bold", size = 16))
 
 #ggarrange(spike, bg, ncol = 1, labels = c("A", "B"), common.legend = TRUE, legend = "right")
-ggsave("figures/expected_observed_logFCs_overall.png", width = 8, height = 8)
+ggsave("figures/expected_observed_logFCs_overall.png", width = 10, height = 10)
 
 

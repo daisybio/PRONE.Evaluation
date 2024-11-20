@@ -217,9 +217,10 @@ plt_li_condition <- ggplot(tmp_li[tmp_li$Type == "Timepoint",], aes(x = BEC, y =
   theme +
   scale_fill_manual(values = c("#F8766D", "#00BFC4", "#619CFF"), name = "Batch Effect Correction") +
   guides(shape = guide_legend(title =  "Timepoint", order = 1, position = "top", nrow = 1), color = FALSE, fill = FALSE) +
-  xlab("Batch Effect Correction") +
-  scale_shape_manual(values = c(16, 17, 18, 19)) + labs(y = "Silhouette Coefficient") +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  scale_shape_manual(values = c(16, 17, 18, 19)) + labs(y = "", x = "") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  ggtitle("Condition-Wise Sample Groups of Cell Culture Dataset dR1")
+
 
 plt_li_batch <- ggplot(tmp_li[tmp_li$Type == "Batch",], aes(x = BEC, y = silh.coeff)) +
   geom_violin(aes(fill = BEC), alpha = 0.4, width = 1) +
@@ -229,8 +230,9 @@ plt_li_batch <- ggplot(tmp_li[tmp_li$Type == "Batch",], aes(x = BEC, y = silh.co
   scale_fill_manual(values = c("#F8766D", "#00BFC4", "#619CFF"), name = "Batch Effect Correction") +
   guides(shape = guide_legend(title =  "Batch", order = 1, position = "top", nrow = 1), color = FALSE, fill = FALSE) +
   xlab("") +
-  scale_shape_manual(values = c(1,2,3)) + labs(y = "Silhouette Coefficient") +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  scale_shape_manual(values = c(1,2,3)) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(y = "Silhouette Coefficient") +
+  ggtitle("Batch-Wise Sample Groups of Cell Culture Dataset dR1")
 
 # CPTAC Silhouette
 library(plyr)
@@ -260,7 +262,9 @@ plt_cptac_condition <- ggplot(tmp_cptac_condition, aes(x = BEC, y = silh.coeff))
   theme + 
   scale_fill_manual(values = c("#F8766D", "#00BFC4", "#619CFF"), name = "Batch Effect Correction") +
   guides(shape = guide_legend(title =  "Pathological Status", order = 1, position = "top", nrow = 1), color = FALSE, fill = FALSE) +
-  xlab("Batch Effect Correction") + scale_shape_manual(values = c(15, 16)) + labs(y = "Silhouette Coefficient")
+  xlab("Batch Effect Correction") + scale_shape_manual(values = c(15, 16)) +
+  ggtitle("Condition-Wise Sample Groups of Clinical Cancer Dataset dR2")
+
 
 plt_cptac_batch <- ggplot(tmp_cptac_batch, aes(x = BEC, y = silh.coeff)) + 
   geom_violin(aes(fill = BEC), alpha = 0.4, width = 1) +
@@ -270,14 +274,16 @@ plt_cptac_batch <- ggplot(tmp_cptac_batch, aes(x = BEC, y = silh.coeff)) +
   theme + 
   scale_fill_manual(values = c("#F8766D", "#00BFC4", "#619CFF"), name = "Batch Effect Correction") +
   guides(shape = guide_legend(title =  "Batch", order = 1, position = "top", nrow = 2), fill = FALSE) +
-  xlab("Batch Effect Correction") + scale_shape_manual(values = seq(0,12)) + labs(y = "Silhouette Coefficient")
+  xlab("Batch Effect Correction") + scale_shape_manual(values = seq(0,12)) + labs(y = "Silhouette Coefficient") +
+  ggtitle("Batch-Wise Sample Groups of Clinical Cancer Dataset dR2")
+
 
 (plt_li_batch + plt_li_condition + plt_cptac_batch + plt_cptac_condition) + 
-  plot_layout(guides = "collect", axis = "collect", axes = "collect", ncol = 2) +
+  plot_layout(ncol = 2) +
   plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(face = "bold", size = 22, margin = unit(c(0,0.2,-0.5,0), "cm")))
 
 
-ggsave("figures/Silhouette_Coefficient_IRS_limBE_all.png", width = 12, height = 8)
+ggsave("figures/Silhouette_Coefficient_IRS_limBE_all.png", width = 13, height = 9)
 
 
 # Supplemental Figures (per normalization method)
@@ -289,7 +295,8 @@ ggplot(tmp_li, aes(x = Type, y = silh.coeff, fill = BEC), aes(x = Type, y = silh
   geom_point(aes(group = BEC, shape = Cluster), position = position_jitterdodge(jitter.width = 0.8, dodge.width = 1)) +
   facet_wrap(~Assay, ncol = 4) +
   theme + scale_fill_manual(name = "Batch Effect Correction", values = c("#F8766D", "#00BFC4", "#619CFF")) + 
-  labs(y = "Silhouette Coefficient", x = "Sample Group") + scale_shape_manual(values = c(1,2,3, 16, 17, 18, 19), name = "Sample Group \n(Batch or Timepoint)")
+  labs(y = "Silhouette Coefficient", x = "Sample Group") + scale_shape_manual(values = c(1,2,3, 16, 17, 18, 19), name = "Sample Group \n(Batch or Timepoint)") + 
+  theme(strip.background =element_rect(fill="white"))
 
 ggsave("figures/Silhouette_Coefficient_IRS_limBE_li.png", width = 12, height = 12)
 
@@ -300,7 +307,8 @@ ggplot(rbind(tmp_cptac_batch, tmp_cptac_condition), aes(x = Type, y = silh.coeff
   geom_point(aes(group = BEC, shape = Cluster), position = position_jitterdodge(jitter.width = 0.8, dodge.width = 1)) +
   facet_wrap(~Assay, ncol = 4) +
   theme + scale_fill_manual(name = "Batch Effect Correction", values = c("#F8766D", "#00BFC4", "#619CFF")) + 
-  labs(y = "Silhouette Coefficient", x = "Sample Group") + scale_shape_manual(values = c(seq(0,12), 16, 17), name = "Sample Group \n(Batch or Pathological Status)")
+  labs(y = "Silhouette Coefficient", x = "Sample Group") + scale_shape_manual(values = c(seq(0,12), 16, 17), name = "Sample Group \n(Batch or Pathological Status)") +
+  theme(strip.background =element_rect(fill="white"))
 
 ggsave("figures/Silhouette_Coefficient_IRS_limBE_cptac.png", width = 12, height = 12)
 
@@ -359,10 +367,10 @@ li_pmad_plot <- ggplot(li_pmad_dt, aes(x = BEC, y = PMAD)) + geom_violin(aes(fil
   theme + scale_color_manual(values = col_vector_norm, name = "Normalization Method") + 
   scale_fill_manual(values = c("#F8766D", "#00BFC4", "#619CFF"), name = "Batch Effect Correction") +
   scale_shape_manual(values = c(16, 17, 18, 19)) + 
-  guides(shape = guide_legend(title = li_condition, order = 1, position = "top"), 
+  guides(shape = guide_legend(title = li_condition, order = 1, position = "bottom"), 
          fill = "none", 
          color = "none") +
-  xlab("Batch Effect Correction")
+  xlab("Batch Effect Correction") + ggtitle("Intragroup Variation of Cell Culture Dataset dR1")
 
 # CPTAC PMAD Plot
 cptac_pmad_dt$BEC <- factor(cptac_pmad_dt$BEC, levels = c("No", "IRS", "limBE"))
@@ -373,13 +381,13 @@ cptac_pmad_plot <- ggplot(cptac_pmad_dt, aes(x = BEC, y = PMAD)) + geom_violin(a
   theme + scale_color_manual(values = col_vector_norm, name = "Normalization Method") + 
   scale_fill_manual(values = c("#F8766D", "#00BFC4", "#619CFF"), name = "Batch Effect Correction") +
   scale_shape_manual(values = c(16, 17)) +
-  guides(shape = guide_legend(title = "Pathological Status", order = 1, position = "top"), 
+  guides(shape = guide_legend(title = "Pathological Status", order = 1, position = "bottom"), 
          fill = "none", 
          color = guide_legend(order = 3, ncol = 1)) +
-  xlab("Batch Effect Correction")
+  xlab("Batch Effect Correction") + ggtitle("Intragroup Variation of Clinical Cancer Dataset dR2")
 
 
-li_pmad_plot + cptac_pmad_plot + plot_layout(axis_titles = "collect") + plot_annotation(tag_levels = "A") &
+li_pmad_plot + cptac_pmad_plot + plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold", size = 20)) 
 
 ggsave("figures/PMAD_real_world_plot.png", width = 13, height = 7, dpi = 300)
@@ -437,15 +445,17 @@ heatmap_batch <- ggplot(clustering_new, aes(x = Position, y = Normalization, fil
   scale_fill_manual(values = col_vector, name = "Batch") +
   facet_wrap(~BEC) + 
   theme +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(x = "Samples", y = "Normalization Method")
-
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(x = "Samples", y = "Normalization Method") +
+  theme(strip.background =element_rect(fill="white"))
+ 
 heatmap_condition <- ggplot(clustering_new, aes(x = Position, y = Normalization, fill = Pathological_Status)) + geom_tile(color = "white") +
   scale_fill_brewer(palette = "Paired", name = "Pathological Status") +
   facet_wrap(~BEC) + 
   theme +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(x = "Samples", y = "Normalization Method")
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(x = "Samples", y = "Normalization Method") +
+  theme(strip.background =element_rect(fill="white"))
 
-(heatmap_batch / heatmap_condition) + plot_layout(axis_titles = "collect") + plot_annotation(tag_levels = "A") &
+(heatmap_batch / heatmap_condition) + plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold", size = 20)) 
 
 ggsave("figures/hierarchical_clustering_CPTAC.png", width = 11, height = 9, dpi = 300)
@@ -473,12 +483,12 @@ single_PCA_dt <- merge(single_PCA_dt, coldata, by = "Column")
 p1 <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Batch)) + 
   geom_point(size = 2) + theme  +
   scale_color_manual(name = "Normalization Method", values = col_vector_norm) +
-  guides(shape = "none")
+  guides(shape = "none") + ggtitle("Without Batch Effect Correction - Colored by \nNormalization Method")
 
 p1_timepoint <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Timepoint, shape = Batch)) + 
   geom_point(size = 2) + theme + guides(color = "none") +
   scale_color_manual(name = "Timepoint", 
-                     values = col_vector)
+                     values = col_vector) + ggtitle("Without Batch Effect Correction - Colored by \n Timepoint")
 ### IRS
 IRS_PCA_dt <- PRONE:::get_complete_pca_dt(li_se_norm, c("IRS", norm_methods_IRS))
 IRS_PCA_dt <- merge(IRS_PCA_dt, coldata, by = "Column")
@@ -486,12 +496,12 @@ IRS_PCA_dt$Assay[IRS_PCA_dt$Assay == "IRS"] <- "IRS_on_log2"
 IRS_PCA_dt$Assay <- sapply(strsplit(IRS_PCA_dt$Assay, "_on_"), function(x) x[2]) 
 
 p2 <- ggplot(IRS_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Batch)) + geom_point(size = 2) + theme + 
-  scale_color_manual(name = "Normalization Method", values = col_vector_norm) + guides(color = "none")
+  scale_color_manual(name = "Normalization Method", values = col_vector_norm) + guides(color = "none") + ggtitle("With IRS - Colored by Normalization Method")
 
 p2_timepoint <- ggplot(IRS_PCA_dt, aes( x= PC1, y = PC2, color = Timepoint, shape = Batch)) + 
   geom_point(size = 2) + theme  +
   scale_color_manual(name = "Timepoint", 
-                     values = col_vector)
+                     values = col_vector) + ggtitle("With IRS - Colored by Timepoint")
 
 ### LimBE
 limBE_PCA_dt <- PRONE:::get_complete_pca_dt(li_se_norm, c("limBE", norm_methods_limBE))
@@ -500,12 +510,12 @@ limBE_PCA_dt$Assay[limBE_PCA_dt$Assay == "limBE"] <- "limBE_on_log2"
 limBE_PCA_dt$Assay <- sapply(strsplit(limBE_PCA_dt$Assay, "_on_"), function(x) x[2]) 
 
 p3 <- ggplot(limBE_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Batch)) + geom_point(size = 2) + theme + 
-  scale_color_manual(name = "Normalization Method", values = col_vector_norm) + guides(color = "none")
+  scale_color_manual(name = "Normalization Method", values = col_vector_norm) + guides(color = "none") + ggtitle("With limBE - Colored by Normalization Method")
 
 p3_timepoint <- ggplot(limBE_PCA_dt, aes( x= PC1, y = PC2, color = Timepoint, shape = Batch)) + 
   geom_point(size = 2) + theme  +
   scale_color_manual(name = "Timepoint", 
-                     values = col_vector)
+                     values = col_vector) + ggtitle("With limBE - Colored by Timepoint")
 
 
 
