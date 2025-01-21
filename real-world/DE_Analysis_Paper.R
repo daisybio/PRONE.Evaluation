@@ -35,24 +35,28 @@ norm_methods_single <- assays[!assays %in% c("limBE", "IRS", norm_methods_IRS, n
 # DE Analysis
 
 li_de_res_new <- PRONE::apply_thresholds(li_de_res) # logFC =1, p.adj < 0.05
-li_de_res_new <- li_de_res_new[li_de_res_new$Assay %in% c(norm_methods_limBE),]
-li_de_res_new$Assay <- sapply(strsplit(li_de_res_new$Assay, "_on_"), function(x) x[2]) 
+li_de_res_new <- li_de_res_new[li_de_res_new$Assay %in% c(norm_methods_limBE, "limBE"),]
+li_de_res_new$Assay[li_de_res_new$Assay != "limBE"] <- sapply(strsplit(li_de_res_new$Assay[li_de_res_new$Assay != "limBE"], "_on_"), function(x) x[2]) 
+li_de_res_new$Assay[li_de_res_new$Assay == "limBE"] <- "log2"
+li_de_res_new$Assay <- factor(li_de_res_new$Assay, levels = sort(unique(li_de_res_new$Assay)))
 
-cptac_de_res <- cptac_de_res[cptac_de_res$Assay %in% c(norm_methods_limBE),]
-cptac_de_res$Assay <- sapply(strsplit(cptac_de_res$Assay, "_on_"), function(x) x[2])
+cptac_de_res <- cptac_de_res[cptac_de_res$Assay %in% c(norm_methods_limBE, "limBE"),]
+cptac_de_res$Assay[cptac_de_res$Assay != "limBE"] <- sapply(strsplit(cptac_de_res$Assay[cptac_de_res$Assay != "limBE"], "_on_"), function(x) x[2])
+cptac_de_res$Assay[cptac_de_res$Assay == "limBE"] <- "log2"
+cptac_de_res$Assay <- factor(cptac_de_res$Assay, levels = sort(unique(li_de_res_new$Assay)))
 
-li_overview_de_plot <- plot_overview_DE_bar(li_de_res_new, plot_type = "single", comparisons = c("D0-D14"))[[1]] +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = "none") + ylab("Normalization Method") + ggtitle("DE Results of Cell Culture Dataset dR1")
+# For Paper
+li_overview_de_plot <- plot_overview_DE_bar(li_de_res_new, plot_type = "single", comparisons = c("D0-D14"))[[1]] +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = "none") + ylab("Normalization Method") + ggtitle("DE Results of Cell Culture Dataset dB1")
+
 li_jaccard_heatmap <- plot_jaccard_heatmap(li_de_res_new, plot_type = "all", comparisons = c("D0-D14")) + theme + theme(axis.text.x = element_text(angle = 90, vjust =0.5), legend.position = "none")
-
-cptac_overview_de_plot <- plot_overview_DE_bar(cptac_de_res, plot_type = "single")[[1]]  +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = c(0.85,0.7), legend.box.background = element_rect(colour = "black")) + ylab("Normalization Method") + ggtitle("DE Results of Clinical Cancer Dataset dR2")
-cptac_jaccard_heatmap <- plot_jaccard_heatmap(cptac_de_res, plot_type = "all") + theme + theme(axis.text.x = element_text(angle = 90, vjust =0.5), legend.position = c(0.85,0.8), legend.box.background = element_rect(colour = "black")) 
-
-cptac_jaccard_heatmap <- cptac_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev) + ggtitle("Intersection Analysis of DE Results of Clincal Cancer Dataset dR2")
-li_jaccard_heatmap <- li_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev) + ggtitle("Intersection Analysis of DE Results of Cell Culture Dataset dR1")
-
-
+li_jaccard_heatmap <- li_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev) + ggtitle("Intersection Analysis of DE Results of Cell Culture Dataset dB1")
 li_jaccard_heatmap$layers[[2]] <- NULL
 li_jaccard_heatmap <- li_jaccard_heatmap + geom_text(aes(label = round(value, digits = 1), color = value > 0.5))
+
+cptac_overview_de_plot <- plot_overview_DE_bar(cptac_de_res, plot_type = "single")[[1]]  +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = c(0.82,0.7), legend.box.background = element_rect(colour = "black")) + ylab("Normalization Method") + ggtitle("DE Results of Clinical Cancer Dataset dB2")
+
+cptac_jaccard_heatmap <- plot_jaccard_heatmap(cptac_de_res, plot_type = "all") + theme + theme(axis.text.x = element_text(angle = 90, vjust =0.5), legend.position = c(0.85,0.8), legend.box.background = element_rect(colour = "black")) 
+cptac_jaccard_heatmap <- cptac_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev) + ggtitle("Intersection Analysis of DE Results of Clincal Cancer Dataset dB2") 
 cptac_jaccard_heatmap$layers[[2]] <- NULL
 cptac_jaccard_heatmap <- cptac_jaccard_heatmap + geom_text(aes(label = round(value, digits = 1), color = value > 0.5))
 
@@ -67,6 +71,7 @@ cptac_jaccard_heatmap <- cptac_jaccard_heatmap + geom_text(aes(label = round(val
   theme(plot.tag = element_text(face = "bold", size = 23))
 
 ggsave("figures/de_results_real_world_paper.png", width = 14, height = 12, dpi = 300)
+ggsave("figures/paper_figures/Figure6.jpeg", width = 14, height = 12, dpi = 600)
 
 # Poster
 
@@ -157,4 +162,82 @@ p450_overview_de_plot + p450_jaccard_heatmap + plot_layout(axis_titles = "collec
   theme(plot.tag = element_text(face = "bold", size = 20)) & theme(legend.position = "top")
 
 ggsave("figures/de_results_p450.png", width = 16, height = 10, dpi = 300)
+
+
+# Volcano plots clinical dataset
+
+plot_volcano_DE(cptac_de_res[!is.na(cptac_de_res$Change),], comparisons = c("Tumor-Non_Tumor"), facet_norm = TRUE)[[1]] + theme + theme(strip.background =element_rect(fill="white")) + ylab("Normalization Method") + ggtitle("")
+
+
+
+# MAD Exploration
+
+cptac_logFC_plot <- ggplot(cptac_de_res, aes(x = logFC, color = Assay)) + geom_density() + 
+  theme + scale_color_manual(values = col_vector_norm) + labs(x = "logFC", y = "Density") + 
+  ggtitle("Clinical Cancer Dataset dB2") + theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "bottom") + guides(color = guide_legend(ncol=7))
+  
+li_logFC_plot <- ggplot(li_de_res_new, aes(x = logFC, color = Assay)) + geom_density() + 
+  theme + scale_color_manual(values = col_vector_norm) + labs(x = "logFC", y = "Density") + 
+  ggtitle("Cell Culture Dataset dB1 (D0-D14)") + theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "bottom") + guides(color = guide_legend(ncol = 7))
+
+p450_logFC_plot <- ggplot(p450_de_res, aes(x = logFC, color = Assay)) + geom_density() +
+  theme + scale_color_manual(values = col_vector_norm) + labs(x = "logFC", y = "Density") + 
+  ggtitle("LFQ Dataset dB3") + theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "bottom") + guides(color = guide_legend(ncol = 7))
+
+li_logFC_plot + cptac_logFC_plot + p450_logFC_plot + plot_layout(guides = "collect", axes = "collect", axis_titles = "collect") + plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(face = "bold", size = 20))
+
+ggsave("figures/de_logFC_distributions.png", width = 16, height = 6, dpi = 300)
+
+
+# make 0.5 for MAD
+mad <- cptac_de_res[cptac_de_res$Assay == "MAD",]
+mad <- PRONE::apply_thresholds(mad, logFC = TRUE, logFC_up = 0.5, logFC_down = -0.5)
+cptac_de_res_mad <- cptac_de_res[cptac_de_res$Assay != "MAD",]
+cptac_de_res_mad <- rbind(cptac_de_res_mad, mad)
+
+cptac_overview_de_plot <- plot_overview_DE_bar(cptac_de_res_mad, plot_type = "single")[[1]]  +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = c(0.82,0.7), legend.box.background = element_rect(colour = "black")) + ylab("Normalization Method") + ggtitle("DE Results of Clinical Cancer Dataset dB2")
+
+cptac_jaccard_heatmap <- plot_jaccard_heatmap(cptac_de_res_mad, plot_type = "all") + theme + theme(axis.text.x = element_text(angle = 90, vjust =0.5), legend.position = c(0.85,0.8), legend.box.background = element_rect(colour = "black")) 
+cptac_jaccard_heatmap <- cptac_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev) + ggtitle("Intersection Analysis of DE Results of Clincal Cancer Dataset dB2") 
+cptac_jaccard_heatmap$layers[[2]] <- NULL
+cptac_jaccard_heatmap <- cptac_jaccard_heatmap + geom_text(aes(label = round(value, digits = 1), color = value > 0.5))
+
+
+mad <- li_de_res_new[li_de_res_new$Assay == "MAD",]
+mad <- PRONE::apply_thresholds(mad, logFC = TRUE, logFC_up = 0.5, logFC_down = -0.5)
+li_de_res_new_mad <- li_de_res_new[li_de_res_new$Assay != "MAD",]
+li_de_res_new_mad <- rbind(li_de_res_new_mad, mad)
+
+li_overview_de_plot <- plot_overview_DE_bar(li_de_res_new_mad, plot_type = "single", comparisons = c("D0-D14"))[[1]] +  ggtitle("") + theme + theme(strip.background =element_rect(fill="white"), legend.position = "none") + ylab("Normalization Method") + ggtitle("DE Results of Cell Culture Dataset dB1")
+
+li_jaccard_heatmap <- plot_jaccard_heatmap(li_de_res_new_mad, plot_type = "all", comparisons = c("D0-D14")) + theme + theme(axis.text.x = element_text(angle = 90, vjust =0.5), legend.position = "none")
+li_jaccard_heatmap <- li_jaccard_heatmap + theme(axis.text.x = element_text(hjust = 1)) + scale_x_discrete(limits = rev) + ggtitle("Intersection Analysis of DE Results of Cell Culture Dataset dB1")
+li_jaccard_heatmap$layers[[2]] <- NULL
+li_jaccard_heatmap <- li_jaccard_heatmap + geom_text(aes(label = round(value, digits = 1), color = value > 0.5))
+
+(li_logFC_plot + cptac_logFC_plot + p450_logFC_plot + plot_layout(guides = "collect", axes = "collect", axis_titles = "collect") & theme(legend.position = "bottom") & guides(color = guide_legend(nrow=2))) /
+(li_overview_de_plot + cptac_overview_de_plot + plot_layout(guides = "keep", axes = "collect", axis_titles = "keep"))  / 
+  (li_jaccard_heatmap + cptac_jaccard_heatmap + plot_layout(guides = "keep", axes = "collect", axis_titles = "keep")) + 
+  plot_annotation(tag_levels = "A") + plot_layout(heights = c(1.5,2,2)) &
+  theme(plot.tag = element_text(face = "bold", size = 23))
+
+ggsave("figures/de_results_real_world_paper_MAD_changed.png", width = 15, height = 17, dpi = 300)
+
+
+melted_dt <- PRONE:::get_complete_dt(li_se_norm, ain = norm_methods_limBE)
+color_by <- "Timepoint"
+qual_col_pals <- RColorBrewer::brewer.pal.info[RColorBrewer::brewer.pal.info$category == 
+                                                 "qual", ]
+col_vector <- unlist(mapply(RColorBrewer::brewer.pal, qual_col_pals$maxcolors, 
+                            rownames(qual_col_pals)))
+col_vector <- rev(col_vector)
+p <- ggplot2::ggplot(melted_dt, ggplot2::aes(x = get("Intensity"), 
+                                             color = get(color_by))) + ggplot2::geom_density(na.rm = TRUE) + 
+  ggplot2::labs(x = "Intensity", y = "Density") + 
+  ggplot2::facet_wrap(~Assay, ncol = 4) + 
+  ggplot2::scale_color_manual(name = color_by, values = col_vector)
+
 

@@ -219,7 +219,7 @@ plt_li_condition <- ggplot(tmp_li[tmp_li$Type == "Timepoint",], aes(x = BEC, y =
   guides(shape = guide_legend(title =  "Timepoint", order = 1, position = "top", nrow = 1), color = FALSE, fill = FALSE) +
   scale_shape_manual(values = c(16, 17, 18, 19)) + labs(y = "", x = "") +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
-  ggtitle("Condition-Wise Sample Groups of Cell Culture Dataset dR1")
+  ggtitle("Condition-Wise Sample Groups of Cell Culture Dataset dB1")
 
 
 plt_li_batch <- ggplot(tmp_li[tmp_li$Type == "Batch",], aes(x = BEC, y = silh.coeff)) +
@@ -232,7 +232,7 @@ plt_li_batch <- ggplot(tmp_li[tmp_li$Type == "Batch",], aes(x = BEC, y = silh.co
   xlab("") +
   scale_shape_manual(values = c(1,2,3)) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(y = "Silhouette Coefficient") +
-  ggtitle("Batch-Wise Sample Groups of Cell Culture Dataset dR1")
+  ggtitle("Batch-Wise Sample Groups of Cell Culture Dataset dB1")
 
 # CPTAC Silhouette
 library(plyr)
@@ -263,7 +263,7 @@ plt_cptac_condition <- ggplot(tmp_cptac_condition, aes(x = BEC, y = silh.coeff))
   scale_fill_manual(values = c("#F8766D", "#00BFC4", "#619CFF"), name = "Batch Effect Correction") +
   guides(shape = guide_legend(title =  "Pathological Status", order = 1, position = "top", nrow = 1), color = FALSE, fill = FALSE) +
   xlab("Batch Effect Correction") + scale_shape_manual(values = c(15, 16)) +
-  ggtitle("Condition-Wise Sample Groups of Clinical Cancer Dataset dR2")
+  ggtitle("Condition-Wise Sample Groups of Clinical Cancer Dataset dB2")
 
 
 plt_cptac_batch <- ggplot(tmp_cptac_batch, aes(x = BEC, y = silh.coeff)) + 
@@ -275,7 +275,7 @@ plt_cptac_batch <- ggplot(tmp_cptac_batch, aes(x = BEC, y = silh.coeff)) +
   scale_fill_manual(values = c("#F8766D", "#00BFC4", "#619CFF"), name = "Batch Effect Correction") +
   guides(shape = guide_legend(title =  "Batch", order = 1, position = "top", nrow = 2), fill = FALSE) +
   xlab("Batch Effect Correction") + scale_shape_manual(values = seq(0,12)) + labs(y = "Silhouette Coefficient") +
-  ggtitle("Batch-Wise Sample Groups of Clinical Cancer Dataset dR2")
+  ggtitle("Batch-Wise Sample Groups of Clinical Cancer Dataset dB2")
 
 
 (plt_li_batch + plt_li_condition + plt_cptac_batch + plt_cptac_condition) + 
@@ -284,6 +284,7 @@ plt_cptac_batch <- ggplot(tmp_cptac_batch, aes(x = BEC, y = silh.coeff)) +
 
 
 ggsave("figures/Silhouette_Coefficient_IRS_limBE_all.png", width = 13, height = 9)
+ggsave("figures/paper_figures/Figure5.jpeg", width = 13, height = 9, dpi = 600)
 
 
 # Supplemental Figures (per normalization method)
@@ -370,7 +371,7 @@ li_pmad_plot <- ggplot(li_pmad_dt, aes(x = BEC, y = PMAD)) + geom_violin(aes(fil
   guides(shape = guide_legend(title = li_condition, order = 1, position = "bottom"), 
          fill = "none", 
          color = "none") +
-  xlab("Batch Effect Correction") + ggtitle("Intragroup Variation of Cell Culture Dataset dR1")
+  xlab("Batch Effect Correction") + ggtitle("Intragroup Variation of Cell Culture Dataset dB1")
 
 # CPTAC PMAD Plot
 cptac_pmad_dt$BEC <- factor(cptac_pmad_dt$BEC, levels = c("No", "IRS", "limBE"))
@@ -384,7 +385,7 @@ cptac_pmad_plot <- ggplot(cptac_pmad_dt, aes(x = BEC, y = PMAD)) + geom_violin(a
   guides(shape = guide_legend(title = "Pathological Status", order = 1, position = "bottom"), 
          fill = "none", 
          color = guide_legend(order = 3, ncol = 1)) +
-  xlab("Batch Effect Correction") + ggtitle("Intragroup Variation of Clinical Cancer Dataset dR2")
+  xlab("Batch Effect Correction") + ggtitle("Intragroup Variation of Clinical Cancer Dataset dB2")
 
 
 li_pmad_plot + cptac_pmad_plot + plot_annotation(tag_levels = "A") &
@@ -398,67 +399,70 @@ ggsave("figures/PMAD_real_world_plot.png", width = 13, height = 7, dpi = 300)
 
 # Hierarchical Clustering
 
-# CPTAC Heatmap of Log2
+plot_hierarchical_heatmap <- function(se, batch_column, condition_column){
+  clustering <- sapply(names(assays(se)), function(ain){
+    dt <- as.data.table(assays(se)[[ain]])
+    clusters <- dendsort::dendsort(stats::hclust(stats::dist(t(dt))))
+    return(clusters$labels[clusters$order])
+  })
+  clustering <- t(clustering)
+  clustering <- as.data.frame(clustering)
+  clustering$Normalization <- row.names(clustering)
+  clustering <- clustering[clustering$Normalization != "raw",]
+  cd <- as.data.table(colData(se))
+  clustering_long <- melt(clustering, value.name = "Column", variable.name = "Position", id.vars = c("Normalization"))
+  clustering_long <- merge(clustering_long, cd, by = "Column")
+  
+  clustering_long_IRS <- clustering_long[clustering_long$Normalization %in% c("IRS", norm_methods_IRS),]
+  clustering_long_IRS$BEC <- "IRS"
+  clustering_long_IRS$Normalization[clustering_long_IRS$Normalization == "IRS"] <- "IRS_on_log2"
+  
+  clustering_long_IRS$Normalization <- sapply(strsplit(as.character(clustering_long_IRS$Normalization), "_on_"), function(x) x[2])
+  clustering_long_single <- clustering_long[clustering_long$Normalization %in% norm_methods_single,]
+  clustering_long_single$BEC <- "No"
 
-se <- cptac_se_norm
+  clustering_long_limBE <- clustering_long[clustering_long$Normalization %in% c("limBE", norm_methods_limBE),]
+  clustering_long_limBE$BEC <- "limBE"
+  clustering_long_limBE$Normalization[clustering_long_limBE$Normalization == "limBE"] <- "limBE_on_log2"
+  clustering_long_limBE$Normalization <- sapply(strsplit(as.character(clustering_long_limBE$Normalization), "_on_"), function(x) x[2])
+  
+  clustering_new <- rbind(clustering_long_IRS, clustering_long_single, clustering_long_limBE)
+  
+  clustering_new$BEC <- factor(clustering_new$BEC, levels = c("No", "IRS", "limBE"))
+  
+  #clustering_new$Batch <- plyr::mapvalues(clustering_new$Batch, from, to)
+  #clustering_new$Batch <- factor(clustering_new$Batch, levels = to)
+  
+  qual_col_pals <- brewer.pal.info[brewer.pal.info$category == "qual",]
+  col_vector <- unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+  col_vector <- col_vector[17:33]
+  
+  heatmap_batch <- ggplot(clustering_new, aes(x = Position, y = Normalization, fill = get(batch_column))) + geom_tile(color = "white") +
+    scale_fill_manual(values = col_vector, name = "Batch") +
+    facet_wrap(~BEC) + 
+    theme +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(x = "Samples", y = "Normalization Method") +
+    theme(strip.background =element_rect(fill="white"))
 
-clustering <- sapply(names(assays(se)), function(ain){
-  dt <- as.data.table(assays(se)[[ain]])
-  clusters <- dendsort::dendsort(stats::hclust(stats::dist(t(dt))))
-  return(clusters$labels[clusters$order])
-})
+  heatmap_condition <- ggplot(clustering_new, aes(x = Position, y = Normalization, fill = get(condition_column))) + geom_tile(color = "white") +
+    scale_fill_brewer(palette = "Paired", name = condition_column) +
+    facet_wrap(~BEC) + 
+    theme +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(x = "Samples", y = "Normalization Method") +
+    theme(strip.background =element_rect(fill="white"))
+  
+  (heatmap_batch / heatmap_condition) + plot_annotation(tag_levels = "A") &
+    theme(plot.tag = element_text(face = "bold", size = 20)) 
+}
 
-clustering <- t(clustering)
-clustering <- as.data.frame(clustering)
-clustering$Normalization <- row.names(clustering)
-clustering <- clustering[clustering$Normalization != "raw",]
 
-cd <- as.data.table(colData(se))
-
-clustering_long <- melt(clustering, value.name = "Column", variable.name = "Position", id.vars = c("Normalization"))
-clustering_long <- merge(clustering_long, cd, by = "Column")
-
-clustering_long_IRS <- clustering_long[clustering_long$Normalization %in% c("IRS", norm_methods_IRS),]
-clustering_long_IRS$BEC <- "IRS"
-clustering_long_IRS$Normalization[clustering_long_IRS$Normalization == "IRS"] <- "IRS_on_log2"
-clustering_long_IRS$Normalization <- sapply(strsplit(as.character(clustering_long_IRS$Normalization), "_on_"), function(x) x[2])
-
-clustering_long_single <- clustering_long[clustering_long$Normalization %in% norm_methods_single,]
-clustering_long_single$BEC <- "No"
-
-clustering_long_limBE <- clustering_long[clustering_long$Normalization %in% c("limBE", norm_methods_limBE),]
-clustering_long_limBE$BEC <- "limBE"
-clustering_long_limBE$Normalization[clustering_long_limBE$Normalization == "limBE"] <- "limBE_on_log2"
-clustering_long_limBE$Normalization <- sapply(strsplit(as.character(clustering_long_limBE$Normalization), "_on_"), function(x) x[2])
-
-clustering_new <- rbind(clustering_long_IRS, clustering_long_single, clustering_long_limBE)
-
-clustering_new$BEC <- factor(clustering_new$BEC, levels = c("No", "IRS", "limBE"))
-clustering_new$Pool <- plyr::mapvalues(clustering_new$Pool, from, to)
-clustering_new$Pool <- factor(clustering_new$Pool, levels = to)
-
-qual_col_pals <- brewer.pal.info[brewer.pal.info$category == "qual",]
-col_vector <- unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
-col_vector <- col_vector[17:33]
-
-heatmap_batch <- ggplot(clustering_new, aes(x = Position, y = Normalization, fill = Pool)) + geom_tile(color = "white") +
-  scale_fill_manual(values = col_vector, name = "Batch") +
-  facet_wrap(~BEC) + 
-  theme +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(x = "Samples", y = "Normalization Method") +
-  theme(strip.background =element_rect(fill="white"))
- 
-heatmap_condition <- ggplot(clustering_new, aes(x = Position, y = Normalization, fill = Pathological_Status)) + geom_tile(color = "white") +
-  scale_fill_brewer(palette = "Paired", name = "Pathological Status") +
-  facet_wrap(~BEC) + 
-  theme +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + labs(x = "Samples", y = "Normalization Method") +
-  theme(strip.background =element_rect(fill="white"))
-
-(heatmap_batch / heatmap_condition) + plot_annotation(tag_levels = "A") &
-  theme(plot.tag = element_text(face = "bold", size = 20)) 
-
+plot_hierarchical_heatmap(cptac_se_norm, "Pool", "Pathological_Status")
 ggsave("figures/hierarchical_clustering_CPTAC.png", width = 11, height = 9, dpi = 300)
+
+colData(li_se_norm)$Timepoint <- factor(colData(li_se_norm)$Timepoint, levels = c("D0", "D3", "D7", "D14"))
+plot_hierarchical_heatmap(li_se_norm, "Batch", "Timepoint")
+ggsave("figures/hierarchical_clustering_li.png", width = 11, height = 9, dpi = 300)
+
 
 
 
@@ -483,7 +487,8 @@ single_PCA_dt <- merge(single_PCA_dt, coldata, by = "Column")
 p1 <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Assay, shape = Batch)) + 
   geom_point(size = 2) + theme  +
   scale_color_manual(name = "Normalization Method", values = col_vector_norm) +
-  guides(shape = "none") + ggtitle("Without Batch Effect Correction - Colored by \nNormalization Method")
+  guides(shape = "none") + ggtitle("Without Batch Effect Correction - Colored by \nNormalization Method") +
+  labs(x = paste0("PC1", single_PCA_dt$PC1_Perc[1]), y = paste0("PC2", single_PCA_dt$PC2_Perc[1]))
 
 p1_timepoint <- ggplot(single_PCA_dt, aes( x= PC1, y = PC2, color = Timepoint, shape = Batch)) + 
   geom_point(size = 2) + theme + guides(color = "none") +

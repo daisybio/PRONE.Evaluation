@@ -141,7 +141,7 @@ PMAD_plot + corr_plot + plot_layout(guides = "collect", axis_titles = "collect",
   theme(plot.tag = element_text(face = "bold", size = 20))
 
 ggsave("figures/intragroup_variation_overall.png", width = 12, height = 6)
-
+ggsave("figures/paper_figures/Figure3.jpeg", width = 12, height = 6, dpi = 600)
 
 ####### -------- Read DE Result Statistics -------- #######
 
@@ -258,6 +258,7 @@ heatmap_med <- ggplot(median_MAD, aes(x = Dataset, y = Assay, fill = Median)) + 
 # Combine all plots
 (auc_box + fpr_box + f1score_final) / heatmap_med + plot_layout(heights = c(1,1)) & plot_annotation(tag_levels = "A") & theme(plot.tag = element_text(face = "bold", size = 22, margin = unit(c(0,0,-0.5,0), "cm")) )
 ggsave("figures/spike_in_DE_results.png", width = 14, height = 12)
+ggsave("figures/paper_figures/Figure4.jpeg", width = 14, height = 12, dpi = 600)
 
 
 ####### -------- Read DE Results -------- #######

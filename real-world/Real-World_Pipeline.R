@@ -133,3 +133,112 @@ de_res <- run_DE(se,
 out_file <- paste0("data/de_results_real_world/", data_name, "_de_res.rds")
 saveRDS(de_res, file = out_file)
 
+
+
+
+
+
+method <- "NormicsVSN"
+on_raw = TRUE
+reduce_correlation_by = 1
+NormicsVSN_quantile = 0.8
+TMT_ratio = FALSE
+top_x = 50
+
+stopifnot(method %in% c("NormicsVSN", "NormicsMedian"))
+stopifnot(is.numeric(top_x))
+dt <- data.table::as.data.table(SummarizedExperiment::assays(se)[[ain]])
+stopifnot(top_x <= nrow(dt))
+coldata <- data.table::as.data.table(SummarizedExperiment::colData(se))
+rowdata <- data.table::as.data.table(SummarizedExperiment::rowData(se))
+if (on_raw & ain != "raw") {
+  if (ain == "log2") {
+    warning("Log2 data specified as ain but on_raw is set to TRUE. On_raw=TRUE forces data to be transformed to raw-scale.")
+  }
+  dt <- 2^dt
+}
+if (ain == "raw" & on_raw == FALSE) {
+  warning("Raw data specified as ain but on_raw is set to FALSE. On_raw=FALSE forces data to be transformed to log2-scale.")
+  dt <- log2(dt)
+}
+
+dt_reduced <- dt[seq(1, nrow(dt), by = reduce_correlation_by), ]
+rowdata_reduced <- rowdata[seq(1, nrow(rowdata), by = reduce_correlation_by),]
+cols <- c("Protein_ID", "Rank_sum_RS", "Mean_correlation_MC", 
+          "Coefficient_of_variation_CV", "Variance_correlation_VC")
+dt_matrix <- as.matrix(dt_reduced)
+means <- apply(dt_matrix, 1, mean, na.rm = TRUE)
+variances <- apply(dt_matrix, 1, stats::var, na.rm = TRUE)
+longlist <- data.frame(matrix(ncol = length(cols), nrow = 0))
+colnames(longlist) <- cols
+cor_matrix <- stats::cor(t(dt_matrix), method = "spearman", 
+                         use = "pairwise.complete.obs")
+cor_df <- as.data.frame(cor_matrix)
+for (i in seq_len(nrow(cor_df))) {
+  temp <- as.numeric(cor_df[i, -i])
+  CV <- ifelse(!TMT_ratio, sqrt(variances[i])/means[i], 
+               sqrt(variances[i]))
+  longlist <- rbind(longlist, data.frame(Protein_ID = rowdata_reduced$Protein.IDs[i], 
+                                         Rank_sum_RS = NA, Mean_correlation_MC = mean(temp, 
+                                                                                      na.rm = TRUE), Coefficient_of_variation_CV = CV, 
+                                         Variance_correlation_VC = stats::var(temp, na.rm = TRUE)))
+}
+longlist <- longlist[order(longlist[[cols[4]]]), ]
+longlist$Rank_sum_RS <- seq_len(nrow(longlist)) - 1
+longlist <- longlist[order(-longlist[[cols[3]]]), ]
+longlist$Rank_sum_RS <- longlist$Rank_sum_RS + seq_len(nrow(longlist)) - 
+  1
+longlist <- longlist[order(longlist[[cols[2]]]), ]
+shortlist <- longlist[seq_len(top_x), ]
+if (method == "NormicsVSN") {
+  dt_ids <- cbind(dt, rowdata[, "Protein.IDs"])
+  colnames(dt_ids)[length(dt) + 1] <- "Protein.IDs"
+  dt_shortlist <- dt_ids[dt_ids$Protein.IDs %in% shortlist$Protein_ID, 
+  ]
+  dt_shortlist$Protein.IDs <- NULL
+  dt_to_norm <- Biobase::ExpressionSet(assayData = as.matrix(dt_shortlist))
+  fit <- vsn::vsn2(dt_to_norm, lts.quantile = NormicsVSN_quantile)
+  dt_to_norm <- Biobase::ExpressionSet(assayData = as.matrix(dt))
+  norm_data <- vsn::predict(fit, dt_to_norm, log2scale = TRUE)
+  norm_dt <- express_to_DT(expr_data = norm_data, column_names = colnames(dt), 
+                           row_names = rownames(dt))
+} else {
+  dt_ids <- cbind(dt, rowdata[["Protein.IDs"]])
+  colnames(dt_ids)[length(dt) + 1] <- "Protein.IDs"
+  dt_shortlist <- dt_ids[dt_ids$Protein.IDs %in% shortlist$Protein_ID, 
+  ]
+  dt_shortlist$Protein.IDs <- NULL
+  ratios <- as.data.frame(lapply(dt_shortlist, stats::median, 
+                                 na.rm = TRUE), col.names = colnames(dt_shortlist))
+  dt <- as.data.frame(dt)
+  norm_dt <- dt
+  for (j in seq_along(dt)) {
+    ri <- ratios[1, j]
+    norm_dt[, j] <- dt[, j]/ri * mean(as.numeric(ratios[1, 
+    ]), na.rm = TRUE)
+  }
+  if (on_raw) {
+    norm_dt <- log2(norm_dt)
+  }
+  norm_dt <- tib_to_DF(norm_dt, colnames(norm_dt), rownames(norm_dt))
+}
+SummarizedExperiment::assay(se, aout, FALSE) <- norm_dt
+
+
+complete_dt <- NULL
+for(ain in names(assays(se_norm))){
+  dt <- as.data.table(assays(se_norm)[[ain]])
+  dt_long <- melt(dt, value.name = "Intensity", variable.name = "Column")
+  cd <- as.data.table(colData(se_norm))
+  merged_dt <- merge(dt_long, cd, by = "Column")
+  merged_dt$assay <- ain
+  if(is.null(complete_dt)){
+    complete_dt <- merged_dt
+  } else {
+    complete_dt <- rbind(complete_dt, merged_dt)
+  }
+}
+
+
+
+ggplot(merged_dt, aes(x = Pathological_Status, y = Intensity, fill = Assay)) + geom_boxplot()
