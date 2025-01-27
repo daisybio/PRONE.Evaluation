@@ -131,4 +131,55 @@ f1_wilcox_plot <- ggplot(f1_wilcox, aes(x = f1_wilcox, y = Assay, fill = Assay))
 ggsave("figures/DE_ROTS_spike_in.png", width = 12, height = 6)
 
 
- 
+ain <- NULL
+color_by <- "No"
+label_by <- NULL
+show_sample_names <- TRUE
+facet_norm <- FALSE
+
+ain <- PRONE:::check_input_assays(se, ain)
+if (is.null(ain)) {
+  return(NULL)
+}
+color_by <- PRONE:::get_color_value(se, color_by)
+tmp <- PRONE:::get_label_value(se, label_by)
+show_sample_names <- tmp[[1]]
+label_by <- tmp[[2]]
+melted_dt <- PRONE:::get_complete_dt(se, ain = ain)
+melted_dt <- melted_dt[order(melted_dt[, color_by]), ]
+if (show_sample_names) {
+  melted_dt$Label <- factor(melted_dt[, label_by], levels = unique(melted_dt[, label_by]))
+} else {
+  melted_dt$Label <- factor(melted_dt$Column, levels = unique(melted_dt$Column))
+}
+qual_col_pals <- RColorBrewer::brewer.pal.info[RColorBrewer::brewer.pal.info$category == 
+                                                 "qual", ]
+col_vector <- unlist(mapply(RColorBrewer::brewer.pal, qual_col_pals$maxcolors, 
+                            rownames(qual_col_pals)))
+col_vector <- rev(col_vector)
+if (facet_norm) {
+  p <- ggplot2::ggplot(melted_dt, ggplot2::aes(x = get("Intensity"), 
+                                               y = get(label_by), fill = get(color_by))) + ggplot2::geom_boxplot() + 
+    ggplot2::stat_boxplot(geom = "errorbar", width = 0.4) + 
+    ggplot2::scale_fill_manual(name = color_by, values = col_vector) + 
+    ggplot2::labs(x = "Intensity", y = "Samples") + 
+    ggplot2::facet_wrap(~Assay, scales = "free_x", ncol = ncol)
+  if (!show_sample_names) {
+    p <- p + ggplot2::theme(axis.text.y = ggplot2::element_blank())
+  }
+} else {
+  p <- list()
+  for (method in c(ain)) {
+    dt <- melted_dt[melted_dt$Assay == method, ]
+    tmp <- ggplot2::ggplot(dt, ggplot2::aes(x = get("Intensity"), 
+                                            y = get(label_by), fill = get(color_by))) + 
+      ggplot2::geom_boxplot() + ggplot2::stat_boxplot(geom = "errorbar", 
+                                                      width = 0.4) + ggplot2::scale_fill_manual(name = color_by, 
+                                                                                                values = col_vector) + ggplot2::labs(x = "Intensity", 
+                                                                                                                                     y = "Samples")
+    if (!show_sample_names) {
+      tmp <- tmp + ggplot2::theme(axis.text.y = ggplot2::element_blank())
+    }
+    p[[method]] <- tmp
+  }
+}
