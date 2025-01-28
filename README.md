@@ -25,4 +25,4 @@ If you want to perform similar analyses on your proteomics dataset, have a look 
 
 ## Citation
 
-.. coming ...
+The preprint is available on BioRxiv: [https://doi.org/10.1101/2025.01.27.634993](https://doi.org/10.1101/2025.01.27.634993).
